@@ -1,0 +1,96 @@
+// Objectways Data catalog schema.
+//
+// One dataset registry, filtered by access tier at the query layer (see
+// src/lib/catalog.ts) rather than split into separate databases. Dev uses
+// SQLite for a zero-dependency local setup; production targets managed
+// Postgres (Neon/Supabase) — switch `provider` below and point
+// DATABASE_URL at it, the schema itself is Postgres-compatible.
+//
+// Note: fields documented as enums are plain Strings because the SQLite
+// connector Prisma uses in dev doesn't support native enum types. The
+// allowed values are enforced in the application layer (src/lib/catalog.ts).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id           String         @id @default(cuid())
+  name         String
+  slug         String         @unique
+  createdAt    DateTime       @default(now())
+  users        User[]
+  entitlements Entitlement[]
+}
+
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  name           String
+  // "contributor" | "customer" | "admin"
+  role           String
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  organizationId String?
+  createdAt      DateTime      @default(now())
+}
+
+model Modality {
+  id              String    @id @default(cuid())
+  key             String    @unique
+  name            String
+  sensorManifest  String
+  sensorNote      String?
+  typicalUse      String
+  datasets        Dataset[]
+}
+
+model Dataset {
+  id           String        @id @default(cuid())
+  slug         String        @unique
+  title        String
+  description  String
+  modality     Modality      @relation(fields: [modalityId], references: [id])
+  modalityId   String
+  // "sample" | "customer" — which door a published dataset appears behind.
+  accessTier   String
+  // "draft" | "published"
+  status       String        @default("draft")
+  version      String        @default("v1")
+  sizeBytes    BigInt        @default(0)
+  r2Prefix     String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  episodes     Episode[]
+  entitlements Entitlement[]
+}
+
+model Episode {
+  id              String    @id @default(cuid())
+  dataset         Dataset   @relation(fields: [datasetId], references: [id])
+  datasetId       String
+  capturedAt      DateTime
+  durationSeconds Int
+  sizeBytes       BigInt
+  r2Key           String
+  // "queued" | "validating" | "cataloged" | "rejected"
+  status          String    @default("queued")
+  rejectionReason String?
+  createdAt       DateTime  @default(now())
+}
+
+// Grants a customer organization access to a specific published dataset.
+model Entitlement {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  dataset        Dataset      @relation(fields: [datasetId], references: [id])
+  datasetId      String
+  grantedAt      DateTime     @default(now())
+
+  @@unique([organizationId, datasetId])
+}
