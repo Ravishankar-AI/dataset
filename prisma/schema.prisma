@@ -1,22 +1,27 @@
 // Objectways Data catalog schema.
 //
 // One dataset registry, filtered by access tier at the query layer (see
-// src/lib/catalog.ts) rather than split into separate databases. Dev uses
-// SQLite for a zero-dependency local setup; production targets managed
-// Postgres (Neon/Supabase) — switch `provider` below and point
-// DATABASE_URL at it, the schema itself is Postgres-compatible.
+// src/lib/catalog.ts) rather than split into separate databases.
 //
-// Note: fields documented as enums are plain Strings because the SQLite
-// connector Prisma uses in dev doesn't support native enum types. The
-// allowed values are enforced in the application layer (src/lib/catalog.ts).
+// Postgres via Supabase. DATABASE_URL is the pooled (transaction-mode,
+// port 6543) connection the app uses at runtime; DIRECT_URL is the
+// unpooled (session-mode, port 5432) connection Prisma needs to run
+// migrations, since the transaction pooler doesn't support the prepared
+// statements migrations rely on.
+//
+// Note: fields documented as enums are plain Strings — this schema also
+// ran on SQLite during early scaffolding, which has no native enum type,
+// and there's no need to diverge now that we're on Postgres. The allowed
+// values are enforced in the application layer (src/lib/catalog.ts).
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Organization {
