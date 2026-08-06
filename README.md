@@ -36,6 +36,25 @@ npm run dev
 Visit `/sign-in` and pick one of the seeded personas (admin, contributor, or an
 Acme Robotics customer) to see each door render under its role.
 
+## Deploying to Railway
+
+`railway.json` pins the build to Nixpacks and runs `prisma migrate deploy`
+before `next start` on every deploy, so Postgres migrations apply
+automatically — no manual step needed after a schema change.
+
+1. **New project** → Deploy from GitHub repo → pick this repo/branch.
+   Railway auto-detects Node and picks up `railway.json`.
+2. **Variables** — copy every key from `.env.example` into the service's
+   Variables tab, pointed at the real Supabase project and R2 bucket (not
+   the SQLite dev setup). Don't set `PORT`; Railway injects it and
+   `next start` reads it automatically.
+3. **Custom domain** — Service → Settings → Networking → Custom Domain →
+   enter `dataset.objectways.com`. Railway returns a CNAME target; add a
+   CNAME record for the `dataset` subdomain at your DNS provider pointing to
+   that target. Railway issues the TLS cert once the record resolves
+   (usually a few minutes, occasionally longer for DNS propagation).
+4. Pushes to the tracked branch redeploy automatically.
+
 ## What's stubbed, and how to un-stub it
 
 This is a design-to-code scaffold, not wired to live infrastructure yet:
