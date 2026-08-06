@@ -38,12 +38,15 @@ Acme Robotics customer) to see each door render under its role.
 
 ## Deploying to Railway
 
-`railway.json` pins the build to Nixpacks and runs `prisma migrate deploy`
-before `next start` on every deploy, so Postgres migrations apply
-automatically — no manual step needed after a schema change.
+`railway.json` sets a `preDeployCommand` of `npx prisma migrate deploy`, so
+Postgres migrations apply automatically before each new deploy goes live —
+no manual step needed after a schema change. Railway doesn't reliably
+auto-detect this file for services created via the API; if a deploy skips
+migrations, set the same value directly on the service (Settings → Deploy →
+Pre-Deploy Command).
 
 1. **New project** → Deploy from GitHub repo → pick this repo/branch.
-   Railway auto-detects Node and picks up `railway.json`.
+   Railway auto-detects Node.
 2. **Variables** — copy every key from `.env.example` into the service's
    Variables tab, pointed at the real Supabase project and R2 bucket (not
    the SQLite dev setup). Don't set `PORT`; Railway injects it and
