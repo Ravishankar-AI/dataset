@@ -17,11 +17,11 @@ export function PillButton({
   icon = "none",
 }: Props) {
   const base =
-    "inline-flex items-center gap-2 rounded-pill font-mono uppercase tracking-wider whitespace-nowrap border transition-colors";
+    "inline-flex items-center gap-2 rounded-pill font-mono uppercase tracking-wider whitespace-nowrap border transition-[box-shadow,background-color]";
   const sizeClasses = size === "small" ? "text-[0.68rem] px-3.5 py-2" : "text-[0.78rem] px-5 py-3";
   const variantClasses = {
-    solid: "bg-line-strong text-paper border-line-strong hover:opacity-90",
-    ghost: "bg-transparent text-ink border-line-strong hover:bg-paper-alt",
+    solid: "bg-signal text-on-signal border-line-strong shadow-brand hover:shadow-none",
+    ghost: "bg-transparent text-ink border-line-strong hover:bg-signal-soft",
     inverted: "bg-paper text-line-strong border-paper hover:opacity-90",
     "ghost-inverted": "bg-transparent text-paper border-paper hover:opacity-70",
   }[variant];

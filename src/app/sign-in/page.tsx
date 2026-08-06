@@ -71,7 +71,7 @@ export default async function SignInPage({
         </label>
         <button
           type="submit"
-          className="mt-2 rounded-pill border border-line-strong bg-line-strong px-5 py-3 font-mono text-[0.78rem] uppercase tracking-wider text-paper hover:opacity-90"
+          className="mt-2 rounded-pill border border-line-strong bg-signal px-5 py-3 font-mono text-[0.78rem] uppercase tracking-wider text-on-signal shadow-brand transition-shadow hover:shadow-none"
         >
           Sign in
         </button>

@@ -2,19 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Palette matches objectways.com's real design tokens (its theme CSS
+ * --color-black/--color-green/etc.) — see prisma/schema.prisma-style note:
+ * source of truth is objectways.com/wp-content/themes/objectways/assets/css/style.css.
+ * --signal is their brand lime, kept at full brightness in both themes since
+ * it's legible on dark backgrounds; --signal-ink is darkened for light-mode
+ * text contrast and matches the lime 1:1 in dark mode.
+ */
 :root {
-  --paper: #fafaf9;
-  --paper-alt: #f0efea;
-  --ink: #16160f;
-  --ink-soft: #5b5a50;
-  --ink-faint: #8b8a7e;
-  --signal: #5a4de0;
-  --signal-ink: #443aae;
-  --signal-soft: #e9e6fb;
-  --line: #dbd8ce;
-  --line-strong: #16160f;
+  --paper: #fdfcff;
+  --paper-alt: #f6f4ff;
+  --ink: #252726;
+  --ink-soft: #616363;
+  --ink-faint: #9a9a9b;
+  --signal: #ceff68;
+  --signal-ink: #4c7000;
+  --signal-soft: #f5fce7;
+  /* Always dark — --signal is the same bright lime in both themes, so text
+     sitting on it must not flip to a light color in dark mode. */
+  --on-signal: #252726;
+  --line: #ebe8ff;
+  --line-strong: #2c2c2c;
   --card: #ffffff;
-  --font-display: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas,
     "Liberation Mono", monospace;
   color-scheme: light;
@@ -22,47 +32,47 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #131310;
-    --paper-alt: #1b1b16;
-    --ink: #f3f2ea;
-    --ink-soft: #afad9f;
-    --ink-faint: #7d7c6f;
-    --signal: #9a8eff;
-    --signal-ink: #c3baff;
-    --signal-soft: #262152;
-    --line: #34332b;
-    --line-strong: #f3f2ea;
-    --card: #191914;
+    --paper: #191a17;
+    --paper-alt: #272825;
+    --ink: #f4f6ef;
+    --ink-soft: #bdbfb9;
+    --ink-faint: #868883;
+    --signal: #ceff68;
+    --signal-ink: #ceff68;
+    --signal-soft: #414c29;
+    --line: #30312e;
+    --line-strong: #f4f6ef;
+    --card: #21221f;
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --paper: #131310;
-  --paper-alt: #1b1b16;
-  --ink: #f3f2ea;
-  --ink-soft: #afad9f;
-  --ink-faint: #7d7c6f;
-  --signal: #9a8eff;
-  --signal-ink: #c3baff;
-  --signal-soft: #262152;
-  --line: #34332b;
-  --line-strong: #f3f2ea;
-  --card: #191914;
+  --paper: #191a17;
+  --paper-alt: #272825;
+  --ink: #f4f6ef;
+  --ink-soft: #bdbfb9;
+  --ink-faint: #868883;
+  --signal: #ceff68;
+  --signal-ink: #ceff68;
+  --signal-soft: #414c29;
+  --line: #30312e;
+  --line-strong: #f4f6ef;
+  --card: #21221f;
   color-scheme: dark;
 }
 
 :root[data-theme="light"] {
-  --paper: #fafaf9;
-  --paper-alt: #f0efea;
-  --ink: #16160f;
-  --ink-soft: #5b5a50;
-  --ink-faint: #8b8a7e;
-  --signal: #5a4de0;
-  --signal-ink: #443aae;
-  --signal-soft: #e9e6fb;
-  --line: #dbd8ce;
-  --line-strong: #16160f;
+  --paper: #fdfcff;
+  --paper-alt: #f6f4ff;
+  --ink: #252726;
+  --ink-soft: #616363;
+  --ink-faint: #9a9a9b;
+  --signal: #ceff68;
+  --signal-ink: #4c7000;
+  --signal-soft: #f5fce7;
+  --line: #ebe8ff;
+  --line-strong: #2c2c2c;
   --card: #ffffff;
   color-scheme: light;
 }
@@ -74,8 +84,8 @@
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: 15px;
+  font-family: var(--font-sans);
+  font-size: 16px;
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
 }
@@ -85,7 +95,7 @@ h2,
 h3,
 h4 {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
   text-wrap: balance;
   margin: 0;
@@ -99,6 +109,17 @@ a {
 :focus-visible {
   outline: 2px solid var(--signal);
   outline-offset: 2px;
+}
+
+/* The Objectways logo asset is dark-on-transparent with no published
+   light variant, so it needs a light backing chip in dark mode. */
+@media (prefers-color-scheme: dark) {
+  .logo-chip {
+    background: #ffffff;
+  }
+}
+:root[data-theme="dark"] .logo-chip {
+  background: #ffffff;
 }
 
 .bracketed {

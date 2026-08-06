@@ -1,14 +1,14 @@
 import Link from "next/link";
+import { Logo } from "./logo";
 
 export function SiteFooter() {
   return (
     <footer className="border-t border-line py-12">
       <div className="mx-auto max-w-[1180px] px-8">
         <div className="flex flex-wrap justify-between gap-8">
-          <Link href="/" className="flex items-baseline gap-[7px] font-display text-[1.05rem] font-extrabold">
-            <span className="inline-block h-[9px] w-[9px] rotate-45 rounded-sm bg-signal" />
-            OBJECTWAYS
-            <span className="ml-0.5 border-l border-line pl-2 font-mono text-[0.68rem] font-medium uppercase tracking-wider text-ink-faint">
+          <Link href="/" className="flex items-center gap-2.5">
+            <Logo />
+            <span className="border-l border-line pl-2.5 font-mono text-[0.68rem] font-medium uppercase tracking-wider text-ink-faint">
               Data
             </span>
           </Link>
