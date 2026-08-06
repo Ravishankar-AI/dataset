@@ -2,11 +2,19 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
 import { SESSION_COOKIE } from "@/lib/auth";
+import { verifyPassword } from "@/lib/password";
 
-export async function signInAs(formData: FormData) {
-  const email = String(formData.get("email") ?? "");
-  const next = String(formData.get("next") ?? "/");
+export async function signIn(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const next = String(formData.get("next") ?? "/samples");
+
+  const user = email ? await prisma.user.findUnique({ where: { email } }) : null;
+  if (!user || !verifyPassword(password, user.passwordHash)) {
+    redirect(`/sign-in?next=${encodeURIComponent(next)}&error=invalid`);
+  }
 
   const store = await cookies();
   store.set(SESSION_COOKIE, email, {
@@ -15,7 +23,7 @@ export async function signInAs(formData: FormData) {
     path: "/",
   });
 
-  redirect(next || "/");
+  redirect(next || "/samples");
 }
 
 export async function signOut(formData: FormData) {

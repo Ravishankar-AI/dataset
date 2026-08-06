@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/auth";
 import { getPublicSampleUrl } from "@/lib/r2";
 import { formatBytes } from "@/lib/format";
 import { PillButton } from "@/components/pill-button";
@@ -10,6 +11,9 @@ export default async function SampleDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const session = await getSession();
+  if (!session) redirect(`/sign-in?next=${encodeURIComponent(`/samples/${slug}`)}`);
+
   const dataset = await prisma.dataset.findFirst({
     where: { slug, accessTier: "sample", status: "published" },
     include: { modality: true },
@@ -42,7 +46,7 @@ export default async function SampleDetailPage({
           <span className="text-[0.66rem] uppercase tracking-wider text-ink-faint">Sensors</span>
         </div>
         <div>
-          <b className="block font-display text-[1.1rem] font-extrabold">Public</b>
+          <b className="block font-display text-[1.1rem] font-extrabold">Account</b>
           <span className="text-[0.66rem] uppercase tracking-wider text-ink-faint">Access</span>
         </div>
       </div>

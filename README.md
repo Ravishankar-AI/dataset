@@ -19,7 +19,7 @@ access-level doors** (Samples / Uploads / Datasets) over the NAS → R2 pipeline
 
 | Door | Route | Who | Gate |
 | --- | --- | --- | --- |
-| Samples | `/samples` | Public | none |
+| Samples | `/samples` | Any registered account | signed in (any role) |
 | Uploads | `/uploads` | Staff | `role: contributor \| admin` |
 | Datasets | `/datasets` | Customer orgs | `role: customer` + org entitlement, or `admin` |
 
@@ -33,8 +33,11 @@ npm run db:seed      # seeds modalities, sample/customer datasets, episodes, dem
 npm run dev
 ```
 
-Visit `/sign-in` and pick one of the seeded personas (admin, contributor, or an
-Acme Robotics customer) to see each door render under its role.
+Visit `/` and either **Register** a new account (lands on `/samples`) or
+**Sign in** with one of the seeded demo accounts — `ravi@objectways.com`
+(admin), `capture-team@objectways.com` (contributor), or
+`ml-lead@acme-robotics.example` (customer) — all using the password
+`password123`.
 
 ## Deploying to Railway
 
@@ -62,11 +65,13 @@ Pre-Deploy Command).
 
 This is a design-to-code scaffold, not wired to live infrastructure yet:
 
-- **Auth** (`src/lib/auth.ts`) — a mock cookie-based session, not a real IdP.
-  Replace `getSession()`'s cookie read with a Clerk or Supabase Auth session
-  lookup (per the architecture memo) and delete `src/app/sign-in/*`. Keep the
-  `Session` type shape (`role`, `organizationId`) — the rest of the app reads
-  from that, not from cookies directly.
+- **Auth** (`src/lib/auth.ts`) — real password hashing (`src/lib/password.ts`,
+  scrypt) behind a plain cookie session, not a real IdP. Replace
+  `getSession()`'s cookie read with a Clerk or Supabase Auth session lookup
+  (per the architecture memo) and delete `src/app/sign-in/*` and
+  `src/app/register/*`. Keep the `Session` type shape (`role`,
+  `organizationId`) — the rest of the app reads from that, not from cookies
+  directly.
 - **Database** (`prisma/schema.prisma`) — SQLite locally for a zero-dependency
   setup. For production, change `datasource db { provider = "postgresql" }`
   and point `DATABASE_URL` at managed Postgres (Neon/Supabase). No SQLite-only

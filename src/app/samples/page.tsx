@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
 import { listSampleDatasets } from "@/lib/catalog";
 import { formatBytes } from "@/lib/format";
 import { PillButton } from "@/components/pill-button";
@@ -5,12 +7,15 @@ import { PillButton } from "@/components/pill-button";
 export const metadata = { title: "Samples — Objectways Data" };
 
 export default async function SamplesPage() {
+  const session = await getSession();
+  if (!session) redirect("/sign-in?next=/samples");
+
   const datasets = await listSampleDatasets();
 
   return (
     <div className="mx-auto max-w-[1180px] px-8 py-16">
       <div className="mb-2 font-mono text-[0.72rem] uppercase tracking-wider text-ink-faint">
-        Public · No login required
+        Signed in as {session.name}
       </div>
       <h1 className="mb-4 text-[2rem] sm:text-[2.6rem]">Sample Data</h1>
       <p className="mb-12 max-w-[62ch] text-ink-soft">

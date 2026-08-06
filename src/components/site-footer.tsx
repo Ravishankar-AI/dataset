@@ -32,14 +32,14 @@ export function SiteFooter() {
             </div>
             <div>
               <h5 className="mb-3.5 font-mono text-[0.68rem] font-medium uppercase tracking-wider text-ink-faint">
-                Company
+                Account
               </h5>
               <div className="flex flex-col gap-2">
-                <Link href="/#labs" className="text-[0.82rem] text-ink-soft hover:text-ink">
-                  For Labs
-                </Link>
                 <Link href="/sign-in" className="text-[0.82rem] text-ink-soft hover:text-ink">
                   Sign in
+                </Link>
+                <Link href="/register" className="text-[0.82rem] text-ink-soft hover:text-ink">
+                  Register
                 </Link>
               </div>
             </div>

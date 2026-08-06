@@ -5,7 +5,6 @@ const NAV_LINKS = [
   { href: "/samples", label: "Samples" },
   { href: "/uploads", label: "Uploads" },
   { href: "/datasets", label: "Datasets" },
-  { href: "/#pipeline", label: "Pipeline" },
 ];
 
 export function SiteHeader({ session }: { session: Session | null }) {
@@ -30,16 +29,30 @@ export function SiteHeader({ session }: { session: Session | null }) {
 
         <div className="flex items-center gap-4">
           {session ? (
-            <span className="hidden text-[0.72rem] uppercase tracking-wider text-ink-faint sm:inline">
-              {session.name} · {session.role}
-            </span>
-          ) : null}
-          <Link
-            href={session ? "/sign-in" : "/sign-in"}
-            className="rounded-pill border border-line-strong bg-line-strong px-3.5 py-2 font-mono text-[0.68rem] uppercase tracking-wider text-paper hover:opacity-90"
-          >
-            {session ? "Switch user" : "Sign in"}
-          </Link>
+            <>
+              <span className="hidden text-[0.72rem] uppercase tracking-wider text-ink-faint sm:inline">
+                {session.name} · {session.role}
+              </span>
+              <Link
+                href="/sign-in"
+                className="rounded-pill border border-line-strong bg-line-strong px-3.5 py-2 font-mono text-[0.68rem] uppercase tracking-wider text-paper hover:opacity-90"
+              >
+                Account
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/sign-in" className="text-[0.74rem] uppercase tracking-wider text-ink-soft hover:text-ink">
+                Sign in
+              </Link>
+              <Link
+                href="/register"
+                className="rounded-pill border border-line-strong bg-line-strong px-3.5 py-2 font-mono text-[0.68rem] uppercase tracking-wider text-paper hover:opacity-90"
+              >
+                Register
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>

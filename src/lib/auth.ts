@@ -2,16 +2,13 @@ import { cookies } from "next/headers";
 import { prisma } from "./db";
 
 /**
- * Mock auth for the design/dev phase.
+ * Cookie-based auth: register/sign-in verify a scrypt password hash
+ * (src/lib/password.ts), then the cookie holds the user's email and every
+ * request re-reads the user row rather than trusting a session token.
  *
- * This exists so the three access tiers (Samples / Uploads / Datasets) can
- * be exercised end-to-end without a real identity provider wired up yet.
- * It stores a plaintext email in a cookie and trusts it — that is only
- * acceptable because there is no real user data behind it in this scaffold.
- *
- * To replace with real auth (Clerk or Supabase Auth, per the architecture
- * memo): swap `getSession()`'s cookie read for that provider's session
- * lookup, keep the same `Session` shape, and delete sign-in/route.ts.
+ * To replace with a real identity provider (Clerk or Supabase Auth, per the
+ * architecture memo): swap `getSession()`'s cookie read for that provider's
+ * session lookup and keep the same `Session` shape.
  */
 
 export const SESSION_COOKIE = "objectways_mock_session";

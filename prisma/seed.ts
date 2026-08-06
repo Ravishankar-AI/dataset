@@ -1,6 +1,10 @@
 import { PrismaClient } from "@prisma/client";
+import { hashPassword } from "../src/lib/password";
 
 const prisma = new PrismaClient();
+
+// Demo password for every seeded account below — dev/demo only.
+const DEMO_PASSWORD = "password123";
 
 const MODALITIES = [
   {
@@ -67,23 +71,28 @@ async function main() {
     data: { name: "Acme Robotics", slug: "acme-robotics" },
   });
 
+  const demoPasswordHash = hashPassword(DEMO_PASSWORD);
+
   await prisma.user.createMany({
     data: [
       {
         email: "ravi@objectways.com",
         name: "Ravi",
         role: "admin",
+        passwordHash: demoPasswordHash,
       },
       {
         email: "capture-team@objectways.com",
         name: "Capture Team",
         role: "contributor",
+        passwordHash: demoPasswordHash,
       },
       {
         email: "ml-lead@acme-robotics.example",
         name: "Acme ML Lead",
         role: "customer",
         organizationId: acme.id,
+        passwordHash: demoPasswordHash,
       },
     ],
   });
