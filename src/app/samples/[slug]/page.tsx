@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { getPublicSampleUrl } from "@/lib/r2";
+import { getPublicSampleUrl } from "@/lib/storage";
 import { formatBytes } from "@/lib/format";
 import { PillButton } from "@/components/pill-button";
 

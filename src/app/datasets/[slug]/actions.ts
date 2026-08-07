@@ -3,9 +3,9 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { getDatasetForViewer } from "@/lib/catalog";
-import { getSignedDownloadUrl } from "@/lib/r2";
+import { getSignedDownloadUrl } from "@/lib/storage";
 
-const DATASETS_BUCKET = process.env.R2_BUCKET_DATASETS || "datasets";
+const DATASETS_BUCKET = process.env.OBJECT_STORAGE_BUCKET_DATASETS || "datasets";
 
 export async function requestDownload(formData: FormData) {
   const slug = String(formData.get("slug") ?? "");

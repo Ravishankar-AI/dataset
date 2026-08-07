@@ -1,15 +1,18 @@
 # Objectways Data
 
 Next.js scaffold for the robotics dataset catalog: **one dataset registry, three
-access-level doors** (Samples / Uploads / Datasets) over the NAS → R2 pipeline.
+access-level doors** (Samples / Uploads / Datasets) over the NAS → MinIO pipeline.
 
 ## Architecture recap
 
 - **NAS** — internal, push-only capture staging (not modeled in this app; the
-  ingestion worker that reads from it is a separate service).
-- **R2** — object storage for both public sample clips and licensed customer
-  datasets. Downloads are signed URLs straight from R2 (`src/lib/r2.ts`) —
-  the app server never proxies file bytes.
+  ingestion worker that reads from it is a separate service). It never talks
+  to this app directly or gets exposed to the internet.
+- **MinIO** — self-hosted, S3-compatible object storage running against the
+  NAS's own disks (not a cloud provider — avoids cloud storage/egress
+  billing) for both public sample clips and licensed customer datasets.
+  Downloads are signed URLs straight from MinIO (`src/lib/storage.ts`) — the
+  app server never proxies file bytes.
 - **One Postgres-shaped catalog** (`prisma/schema.prisma`) — `Dataset`,
   `Episode`, `Modality`, `Organization`, `Entitlement`. Samples, Uploads, and
   Datasets are access-tier filters over this same registry
@@ -51,8 +54,8 @@ Pre-Deploy Command).
 1. **New project** → Deploy from GitHub repo → pick this repo/branch.
    Railway auto-detects Node.
 2. **Variables** — copy every key from `.env.example` into the service's
-   Variables tab, pointed at the real Supabase project and R2 bucket (not
-   the SQLite dev setup). Don't set `PORT`; Railway injects it and
+   Variables tab, pointed at the real Supabase project and MinIO endpoint
+   (not the SQLite dev setup). Don't set `PORT`; Railway injects it and
    `next start` reads it automatically.
 3. **Custom domain** — Service → Settings → Networking → Custom Domain →
    enter `dataset.objectways.com`. Railway returns a CNAME target; add a
@@ -76,12 +79,16 @@ This is a design-to-code scaffold, not wired to live infrastructure yet:
   setup. For production, change `datasource db { provider = "postgresql" }`
   and point `DATABASE_URL` at managed Postgres (Neon/Supabase). No SQLite-only
   features are used, so this is a one-line change plus a fresh migration.
-- **R2** (`src/lib/r2.ts`) — real signed URLs once `R2_ACCOUNT_ID`,
-  `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` are set. Without them, it
-  falls back to `/placeholder-download` so every page stays clickable in dev.
+- **Object storage** (`src/lib/storage.ts`) — real signed URLs once
+  `OBJECT_STORAGE_ENDPOINT`, `OBJECT_STORAGE_ACCESS_KEY_ID`, and
+  `OBJECT_STORAGE_SECRET_ACCESS_KEY` are set, pointed at a MinIO instance
+  running against the NAS's storage (`forcePathStyle` is required for
+  MinIO — see the client config). Without them, it falls back to
+  `/placeholder-download` so every page stays clickable in dev.
 - **Ingestion worker** — not part of this repo. `/uploads` reads whatever is
   already in the `Episode` table; the worker that validates, anonymizes, and
-  writes those rows from NAS captures is a separate service to build next.
+  writes those rows from NAS captures to MinIO is a separate service to
+  build next.
 
 ## Design system
 
