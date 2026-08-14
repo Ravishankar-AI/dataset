@@ -55,7 +55,7 @@ export default async function DatasetDetailPage({
         </button>
       </form>
       <p className="mt-3 text-[0.72rem] text-ink-faint">
-        Generates a time-limited link straight to R2 — the app server never proxies the file.
+        Generates a time-limited link straight to MinIO on the NAS — the app server never proxies the file.
       </p>
     </div>
   );

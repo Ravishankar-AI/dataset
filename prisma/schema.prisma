@@ -67,7 +67,7 @@ model Dataset {
   status       String        @default("draft")
   version      String        @default("v1")
   sizeBytes    BigInt        @default(0)
-  r2Prefix     String
+  objectPrefix String
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   episodes     Episode[]
@@ -81,7 +81,7 @@ model Episode {
   capturedAt      DateTime
   durationSeconds Int
   sizeBytes       BigInt
-  r2Key           String
+  objectKey       String
   // "queued" | "validating" | "cataloged" | "rejected"
   status          String    @default("queued")
   rejectionReason String?

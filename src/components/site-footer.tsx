@@ -48,7 +48,7 @@ export function SiteFooter() {
 
         <div className="mt-11 flex flex-wrap justify-between gap-3 border-t border-dashed border-line pt-5 text-[0.72rem] text-ink-faint">
           <span>© 2026 Objectways.</span>
-          <span>Built on the NAS → R2 → three-doors architecture.</span>
+          <span>Built on the NAS/MinIO → three-doors architecture.</span>
         </div>
       </div>
     </footer>

@@ -1,7 +1,7 @@
 const NODES = [
-  { label: "NAS", sub: "Internal, push-only" },
+  { label: "NAS + MinIO", sub: "Internal, push-only" },
   { label: "Ingestion + QA", sub: "Validate, anonymize" },
-  { label: "R2 Catalog", sub: "Versioned, cataloged" },
+  { label: "Catalog", sub: "Versioned, cataloged" },
   { label: "3 Doors", sub: "Samples / Uploads / Datasets" },
 ];
 

@@ -3,9 +3,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { getDatasetForViewer } from "@/lib/catalog";
-import { getSignedDownloadUrl } from "@/lib/r2";
-
-const DATASETS_BUCKET = process.env.R2_BUCKET_DATASETS || "datasets";
+import { getSignedDownloadUrl } from "@/lib/minio";
 
 export async function requestDownload(formData: FormData) {
   const slug = String(formData.get("slug") ?? "");
@@ -18,6 +16,6 @@ export async function requestDownload(formData: FormData) {
     redirect(`/sign-in?next=/datasets/${slug}`);
   }
 
-  const { url } = await getSignedDownloadUrl(DATASETS_BUCKET, `${dataset.r2Prefix}manifest.tar`);
+  const { url } = await getSignedDownloadUrl(`${dataset.objectPrefix}manifest.tar`);
   redirect(url);
 }

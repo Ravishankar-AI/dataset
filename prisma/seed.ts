@@ -126,7 +126,7 @@ async function main() {
         status: "published",
         version: "v1",
         sizeBytes: BigInt(2_500_000_000),
-        r2Prefix: `samples/${d.slug}/`,
+        objectPrefix: `samples/${d.slug}/`,
       },
     });
   }
@@ -141,7 +141,7 @@ async function main() {
       status: "published",
       version: "v2",
       sizeBytes: BigInt(1_400_000_000_000),
-      r2Prefix: "datasets/egograsp-acme-v2/",
+      objectPrefix: "datasets/egograsp-acme-v2/",
     },
   });
 
@@ -159,7 +159,7 @@ async function main() {
       status: "draft",
       version: "v1",
       sizeBytes: BigInt(0),
-      r2Prefix: "datasets/egonav-indoor-draft/",
+      objectPrefix: "datasets/egonav-indoor-draft/",
     },
   });
 
@@ -184,7 +184,7 @@ async function main() {
         capturedAt: new Date(now.getTime() - e.offsetHours * 3600_000),
         durationSeconds: e.duration,
         sizeBytes: BigInt(80_000_000 + i * 12_000_000),
-        r2Key: `${draftDataset.r2Prefix}episode-${String(i + 1).padStart(3, "0")}.mp4`,
+        objectKey: `${draftDataset.objectPrefix}episode-${String(i + 1).padStart(3, "0")}.mp4`,
         status: e.status,
         rejectionReason: e.rejectionReason,
       },

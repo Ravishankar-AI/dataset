@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getPublicSampleUrl } from "@/lib/r2";
+import { getPublicSampleUrl } from "@/lib/minio";
 import { formatBytes } from "@/lib/format";
 import { PillButton } from "@/components/pill-button";
 
@@ -16,7 +16,7 @@ export default async function SampleDetailPage({
   });
   if (!dataset) notFound();
 
-  const preview = getPublicSampleUrl(`${dataset.r2Prefix}preview.mp4`);
+  const preview = await getPublicSampleUrl(`${dataset.objectPrefix}preview.mp4`);
 
   return (
     <div className="mx-auto max-w-[820px] px-8 py-16">
@@ -57,7 +57,7 @@ export default async function SampleDetailPage({
       </div>
       {!preview.isLive && (
         <p className="mt-3 text-[0.72rem] text-ink-faint">
-          R2 credentials aren&apos;t configured in this environment, so this links to a placeholder.
+          MinIO credentials aren&apos;t configured in this environment, so this links to a placeholder.
         </p>
       )}
     </div>

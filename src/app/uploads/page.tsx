@@ -58,7 +58,7 @@ export default async function UploadsPage() {
                 <td
                   className={`py-4 pr-4 font-mono text-[0.8rem] ${i === episodes.length - 1 ? "border-b border-line" : "border-b border-dashed border-line"}`}
                 >
-                  {e.r2Key.split("/").pop()}
+                  {e.objectKey.split("/").pop()}
                 </td>
                 <td
                   className={`py-4 pr-4 text-[0.85rem] ${i === episodes.length - 1 ? "border-b border-line" : "border-b border-dashed border-line"}`}

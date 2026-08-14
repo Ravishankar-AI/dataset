@@ -22,7 +22,7 @@ insert into "User" (id, email, name, role, "organizationId") values
   ('usr_contributor', 'capture-team@objectways.com', 'Capture Team', 'contributor', null),
   ('usr_customer', 'ml-lead@acme-robotics.example', 'Acme ML Lead', 'customer', 'org_acme_robotics');
 
-insert into "Dataset" (id, slug, title, description, "modalityId", "accessTier", status, version, "sizeBytes", "r2Prefix", "updatedAt") values
+insert into "Dataset" (id, slug, title, description, "modalityId", "accessTier", status, version, "sizeBytes", "objectPrefix", "updatedAt") values
   ('ds_egotask_sample', 'egotask-sample', 'EgoTask — Sample', 'Long-horizon task interaction clips for embodied AI and multistep robotics learning.', 'mod_egocentric', 'sample', 'published', 'v1', 2500000000, 'samples/egotask-sample/', now()),
   ('ds_egograsp_sample', 'egograsp-sample', 'EgoGrasp — Sample', 'Close-range hand-object interaction clips for dexterous manipulation models.', 'mod_egocentric', 'sample', 'published', 'v1', 2500000000, 'samples/egograsp-sample/', now()),
   ('ds_teleop_kitchen_sample', 'teleop-kitchen-sample', 'Teleop Kitchen — Sample', 'Operator-driven kitchen manipulation traces with synced joint state logs.', 'mod_teleop', 'sample', 'published', 'v1', 2500000000, 'samples/teleop-kitchen-sample/', now()),
@@ -33,7 +33,7 @@ insert into "Dataset" (id, slug, title, description, "modalityId", "accessTier",
 insert into "Entitlement" (id, "organizationId", "datasetId") values
   ('ent_acme_egograsp_v2', 'org_acme_robotics', 'ds_egograsp_acme_v2');
 
-insert into "Episode" (id, "datasetId", "capturedAt", "durationSeconds", "sizeBytes", "r2Key", status, "rejectionReason") values
+insert into "Episode" (id, "datasetId", "capturedAt", "durationSeconds", "sizeBytes", "objectKey", status, "rejectionReason") values
   ('ep_001', 'ds_egonav_indoor_draft', now() - interval '2 hours', 340, 80000000, 'datasets/egonav-indoor-draft/episode-001.mp4', 'cataloged', null),
   ('ep_002', 'ds_egonav_indoor_draft', now() - interval '5 hours', 512, 92000000, 'datasets/egonav-indoor-draft/episode-002.mp4', 'cataloged', null),
   ('ep_003', 'ds_egonav_indoor_draft', now() - interval '1 hours', 280, 104000000, 'datasets/egonav-indoor-draft/episode-003.mp4', 'validating', null),
