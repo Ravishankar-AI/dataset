@@ -1,10 +1,10 @@
 -- Manual seed script, mirroring prisma/seed.ts.
 --
 -- Exists because this workspace's sandbox can't open a raw Postgres
--- connection to Supabase (only HTTPS is reachable here), so `npm run
--- db:seed` can't run from it. Paste this into the Supabase SQL Editor
--- instead. If prisma/seed.ts ever changes, this file needs updating by
--- hand to match — it is not derived automatically.
+-- connection to Railway (only HTTPS is reachable here), so `npm run
+-- db:seed` can't run from it. Paste this into Railway's Postgres service
+-- → Data → Query tab instead. If prisma/seed.ts ever changes, this file
+-- needs updating by hand to match — it is not derived automatically.
 
 insert into "Modality" (id, key, name, "sensorManifest", "sensorNote", "typicalUse") values
   ('mod_egocentric', 'egocentric', 'Egocentric', 'Camera + IMU', '+ LiDAR on supported rigs', 'First-person task and object-interaction data for imitation learning.'),

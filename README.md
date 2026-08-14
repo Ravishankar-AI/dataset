@@ -31,9 +31,9 @@ access-level doors** (Samples / Uploads / Datasets) over the NAS/MinIO pipeline.
 
 ```bash
 npm install
-cp .env.example .env
-npm run db:migrate   # creates prisma/dev.db (SQLite) and applies the schema
-npm run db:seed      # seeds modalities, sample/customer datasets, episodes, demo users
+cp .env.example .env   # fill in DATABASE_URL from your Railway Postgres service
+npm run db:migrate     # applies the schema to that database
+npm run db:seed        # seeds modalities, sample/customer datasets, episodes, demo users
 npm run dev
 ```
 
@@ -45,14 +45,14 @@ Acme Robotics customer) to see each door render under its role.
 This is a design-to-code scaffold, not wired to live infrastructure yet:
 
 - **Auth** (`src/lib/auth.ts`) — a mock cookie-based session, not a real IdP.
-  Replace `getSession()`'s cookie read with a Clerk or Supabase Auth session
-  lookup (per the architecture memo) and delete `src/app/sign-in/*`. Keep the
-  `Session` type shape (`role`, `organizationId`) — the rest of the app reads
-  from that, not from cookies directly.
-- **Database** (`prisma/schema.prisma`) — SQLite locally for a zero-dependency
-  setup. For production, change `datasource db { provider = "postgresql" }`
-  and point `DATABASE_URL` at managed Postgres (Neon/Supabase). No SQLite-only
-  features are used, so this is a one-line change plus a fresh migration.
+  Replace `getSession()`'s cookie read with a Clerk session lookup, or a
+  self-hosted option like Auth.js (NextAuth) using the Prisma adapter against
+  the same Railway Postgres database, and delete `src/app/sign-in/*`. Keep
+  the `Session` type shape (`role`, `organizationId`) — the rest of the app
+  reads from that, not from cookies directly.
+- **Database** (`prisma/schema.prisma`) — already targets Postgres
+  (`datasource db { provider = "postgresql" }`); point `DATABASE_URL` at your
+  Railway Postgres service's connection string to use it.
 - **MinIO** (`src/lib/minio.ts`) — real signed URLs once `MINIO_ENDPOINT`,
   `MINIO_ACCESS_KEY`, and `MINIO_SECRET_KEY` are set. Without them, it falls
   back to `/placeholder-download` so every page stays clickable in dev.
