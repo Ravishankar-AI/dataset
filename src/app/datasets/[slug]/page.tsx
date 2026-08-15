@@ -44,16 +44,25 @@ export default async function DatasetDetailPage({
         </div>
       </div>
 
-      <a
-        href={`/datasets/${dataset.slug}/manifest`}
-        className="inline-flex items-center gap-2 rounded-pill border border-line-strong bg-line-strong px-5 py-3 font-mono text-[0.78rem] uppercase tracking-wider text-paper transition-colors hover:opacity-90"
-      >
-        Get Download Manifest <span aria-hidden>→</span>
-      </a>
-      <p className="mt-3 text-[0.72rem] text-ink-faint">
-        Generates a manifest of time-limited links to every file in this dataset, straight from MinIO on
-        the NAS — the app server never proxies file bytes or zips anything server-side.
-      </p>
+      {dataset.objectPrefix ? (
+        <>
+          <a
+            href={`/datasets/${dataset.slug}/manifest`}
+            className="inline-flex items-center gap-2 rounded-pill border border-line-strong bg-line-strong px-5 py-3 font-mono text-[0.78rem] uppercase tracking-wider text-paper transition-colors hover:opacity-90"
+          >
+            Get Download Manifest <span aria-hidden>→</span>
+          </a>
+          <p className="mt-3 text-[0.72rem] text-ink-faint">
+            Generates a manifest of time-limited links to every file in this dataset, straight from MinIO on
+            the NAS — the app server never proxies file bytes or zips anything server-side.
+          </p>
+        </>
+      ) : (
+        <p className="text-[0.72rem] text-ink-faint">
+          This dataset groups many tasks, each from its own capture folder — browse its tasks from the
+          samples page instead of a single dataset-wide manifest.
+        </p>
+      )}
     </div>
   );
 }

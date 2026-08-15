@@ -93,6 +93,12 @@ model Task {
   datasetId  String
   taskIndex  Int
   title      String
+  // LeRobot dataset layout for this task's own capture folder -- required
+  // for multi-task datasets where each task is a separate raw capture with
+  // its own bucket prefix and camera set (see Dataset.objectPrefix docs).
+  objectPrefix String
+  chunk        String    @default("chunk-000")
+  cameras      String[]  @default([])
   episodes   Episode[]
 
   @@unique([datasetId, taskIndex])
@@ -116,6 +122,8 @@ model Episode {
   status          String    @default("queued")
   rejectionReason String?
   createdAt       DateTime  @default(now())
+
+  @@unique([taskId, episodeIndex])
 }
 
 // Grants a customer organization access to a specific published dataset.
