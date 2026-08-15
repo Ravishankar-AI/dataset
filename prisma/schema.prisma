@@ -72,9 +72,10 @@ model Dataset {
   chunk        String        @default("chunk-000")
   cameras      String[]      @default([])
   fps          Int           @default(30)
-  // LeRobot's info.json "robot_type" (e.g. "trossen_ai_stationary") -- the
-  // physical rig, not a per-episode attribute.
+  // Physical rig and camera hardware -- dataset-level constants, not derived
+  // from meta/info.json (which only records the internal robot_type key).
   robotType    String?
+  cameraModel  String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   tasks        Task[]

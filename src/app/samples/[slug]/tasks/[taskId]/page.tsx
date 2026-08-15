@@ -16,6 +16,7 @@ export default async function TaskDeliverablesPage({
 
   const dataset = await prisma.dataset.findFirst({
     where: { slug, accessTier: "sample", status: "published" },
+    select: { id: true, title: true, robotType: true, cameraModel: true },
   });
   if (!dataset) notFound();
 
@@ -48,7 +49,21 @@ export default async function TaskDeliverablesPage({
               <div className="mb-2 font-mono text-[0.68rem] uppercase tracking-wider text-signal-ink">
                 Episode {e.episodeIndex}
               </div>
-              <div className="font-mono text-[0.82rem] tabular-nums">{formatDuration(e.durationSeconds)}</div>
+              <div className="mb-2.5 font-mono text-[0.82rem] tabular-nums">
+                {formatDuration(e.durationSeconds)}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {dataset.robotType && (
+                  <span className="rounded-pill border border-signal-ink px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-wider text-signal-ink">
+                    {dataset.robotType}
+                  </span>
+                )}
+                {dataset.cameraModel && (
+                  <span className="rounded-pill border border-signal-ink px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-wider text-signal-ink">
+                    {dataset.cameraModel}
+                  </span>
+                )}
+              </div>
             </Link>
           ))}
         </div>
