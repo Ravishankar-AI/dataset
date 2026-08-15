@@ -3,8 +3,14 @@
 -- Exists because this workspace's sandbox can't open a raw Postgres
 -- connection to Railway (only HTTPS is reachable here), so `npm run
 -- db:seed` can't run from it. Paste this into Railway's Postgres service
--- → Data → Query tab instead. If prisma/seed.ts ever changes, this file
--- needs updating by hand to match — it is not derived automatically.
+-- → Database → Data query tab instead. If prisma/seed.ts ever changes,
+-- this file needs updating by hand to match — it is not derived
+-- automatically.
+--
+-- Every insert uses "on conflict ... do nothing" so this is safe to
+-- re-run against a partially-seeded database (e.g. a real account
+-- someone already registered with one of these demo emails, or a
+-- previous attempt that got partway through before failing).
 --
 -- "passwordHash" below is scrypt("password123") via src/lib/password.ts's
 -- hashPassword() — the same demo password prisma/seed.ts uses for every
@@ -16,33 +22,40 @@ insert into "Modality" (id, key, name, "sensorManifest", "sensorNote", "typicalU
   ('mod_teleop', 'teleop', 'Teleop', 'Arm joint states', '+ camera + operator input log', 'Operator-driven manipulation traces for policy training and action labeling.'),
   ('mod_umi_gripper', 'umi_gripper', 'UMI Gripper', 'Handheld gripper cam', '+ force/width sensing', 'In-the-wild grasp and manipulation capture without a fixed rig.'),
   ('mod_tactile', 'tactile', 'Tactile', 'Tactile array', '+ contact camera', 'Contact-rich manipulation data for grasp stability and slip detection.'),
-  ('mod_mocap', 'mocap', 'MOCAP', 'Marker-based rig', '+ synced reference camera', 'Ground-truth kinematic trajectories for humanoid whole-body motion.');
+  ('mod_mocap', 'mocap', 'MOCAP', 'Marker-based rig', '+ synced reference camera', 'Ground-truth kinematic trajectories for humanoid whole-body motion.')
+on conflict (key) do nothing;
 
 insert into "Organization" (id, name, slug) values
-  ('org_acme_robotics', 'Acme Robotics', 'acme-robotics');
+  ('org_acme_robotics', 'Acme Robotics', 'acme-robotics')
+on conflict (slug) do nothing;
 
 insert into "User" (id, email, name, "passwordHash", role, "organizationId") values
   ('usr_admin', 'ravi@objectways.com', 'Ravi', 'ddb9a3ef7236c9efb9fd6cfce827f6f8:be15eabf4496a552a5f6cf10eaaafbd259e36da5f52c0dc0a87043273f701d23ea34565cc6019e149735ab48fd76fdc4297bb29117b034ebf98f28aa1005ef8c', 'admin', null),
   ('usr_contributor', 'capture-team@objectways.com', 'Capture Team', 'ddb9a3ef7236c9efb9fd6cfce827f6f8:be15eabf4496a552a5f6cf10eaaafbd259e36da5f52c0dc0a87043273f701d23ea34565cc6019e149735ab48fd76fdc4297bb29117b034ebf98f28aa1005ef8c', 'contributor', null),
-  ('usr_customer', 'ml-lead@acme-robotics.example', 'Acme ML Lead', 'ddb9a3ef7236c9efb9fd6cfce827f6f8:be15eabf4496a552a5f6cf10eaaafbd259e36da5f52c0dc0a87043273f701d23ea34565cc6019e149735ab48fd76fdc4297bb29117b034ebf98f28aa1005ef8c', 'customer', 'org_acme_robotics');
+  ('usr_customer', 'ml-lead@acme-robotics.example', 'Acme ML Lead', 'ddb9a3ef7236c9efb9fd6cfce827f6f8:be15eabf4496a552a5f6cf10eaaafbd259e36da5f52c0dc0a87043273f701d23ea34565cc6019e149735ab48fd76fdc4297bb29117b034ebf98f28aa1005ef8c', 'customer', 'org_acme_robotics')
+on conflict (email) do nothing;
 
 -- Clutter Sort is real capture data confirmed via a live bucket listing
 -- (LeRobot layout: data/meta/videos under chunk-000, 102 episodes, 3
 -- cameras). Everything else in the bucket is unreviewed raw capture
 -- staging, not fit for the catalog.
 insert into "Dataset" (id, slug, title, description, "modalityId", "accessTier", status, version, "sizeBytes", "objectPrefix", chunk, cameras, "updatedAt") values
-  ('ds_clutter_sort', 'clutter-sort', 'Clutter Sort', 'Bimanual clutter-sorting manipulation episodes captured with a 3-camera rig (overhead plus both wrists).', 'mod_teleop', 'sample', 'published', 'v1', 580931773, 'Clutter_sort/', 'chunk-000', ARRAY['observation.images.cam_high','observation.images.cam_left_wrist','observation.images.cam_right_wrist'], now());
+  ('ds_clutter_sort', 'clutter-sort', 'Clutter Sort', 'Bimanual clutter-sorting manipulation episodes captured with a 3-camera rig (overhead plus both wrists).', 'mod_teleop', 'sample', 'published', 'v1', 580931773, 'Clutter_sort/', 'chunk-000', ARRAY['observation.images.cam_high','observation.images.cam_left_wrist','observation.images.cam_right_wrist'], now())
+on conflict (slug) do nothing;
 
 insert into "Dataset" (id, slug, title, description, "modalityId", "accessTier", status, version, "sizeBytes", "objectPrefix", "updatedAt") values
   ('ds_egograsp_acme_v2', 'egograsp-acme-v2', 'EgoGrasp — Acme Custom Capture', 'Custom EgoGrasp campaign scoped to Acme''s warehouse SKUs, 40 hours across 3 sites.', 'mod_egocentric', 'customer', 'published', 'v2', 1400000000000, 'datasets/egograsp-acme-v2/', now()),
-  ('ds_egonav_indoor_draft', 'egonav-indoor-draft', 'EgoNav — Indoor Navigation (in review)', 'GPS-denied indoor navigation traces through malls, offices, and staircases.', 'mod_exocentric', 'customer', 'draft', 'v1', 0, 'datasets/egonav-indoor-draft/', now());
+  ('ds_egonav_indoor_draft', 'egonav-indoor-draft', 'EgoNav — Indoor Navigation (in review)', 'GPS-denied indoor navigation traces through malls, offices, and staircases.', 'mod_exocentric', 'customer', 'draft', 'v1', 0, 'datasets/egonav-indoor-draft/', now())
+on conflict (slug) do nothing;
 
 insert into "Entitlement" (id, "organizationId", "datasetId") values
-  ('ent_acme_egograsp_v2', 'org_acme_robotics', 'ds_egograsp_acme_v2');
+  ('ent_acme_egograsp_v2', 'org_acme_robotics', 'ds_egograsp_acme_v2')
+on conflict ("organizationId", "datasetId") do nothing;
 
 insert into "Episode" (id, "datasetId", "capturedAt", "durationSeconds", "sizeBytes", "objectKey", status, "rejectionReason") values
   ('ep_001', 'ds_egonav_indoor_draft', now() - interval '2 hours', 340, 80000000, 'datasets/egonav-indoor-draft/episode-001.mp4', 'cataloged', null),
   ('ep_002', 'ds_egonav_indoor_draft', now() - interval '5 hours', 512, 92000000, 'datasets/egonav-indoor-draft/episode-002.mp4', 'cataloged', null),
   ('ep_003', 'ds_egonav_indoor_draft', now() - interval '1 hours', 280, 104000000, 'datasets/egonav-indoor-draft/episode-003.mp4', 'validating', null),
   ('ep_004', 'ds_egonav_indoor_draft', now() - interval '0.2 hours', 190, 116000000, 'datasets/egonav-indoor-draft/episode-004.mp4', 'queued', null),
-  ('ep_005', 'ds_egonav_indoor_draft', now() - interval '8 hours', 95, 128000000, 'datasets/egonav-indoor-draft/episode-005.mp4', 'rejected', 'Face anonymization failed — bystander visible in frame 00:41.');
+  ('ep_005', 'ds_egonav_indoor_draft', now() - interval '8 hours', 95, 128000000, 'datasets/egonav-indoor-draft/episode-005.mp4', 'rejected', 'Face anonymization failed — bystander visible in frame 00:41.')
+on conflict (id) do nothing;
