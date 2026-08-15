@@ -36,7 +36,7 @@ export default async function SampleDetailPage({
   const anyLive = cameraPreviews.some((p) => p.isLive);
 
   return (
-    <div className="mx-auto max-w-[820px] px-8 py-16">
+    <div className="mx-auto max-w-[1230px] px-8 py-16">
       <div className="mb-2 font-mono text-[0.72rem] uppercase tracking-wider text-signal-ink">
         {dataset.modality.name} · Sample
       </div>
