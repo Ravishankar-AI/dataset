@@ -71,16 +71,42 @@ model Dataset {
   objectPrefix String
   chunk        String        @default("chunk-000")
   cameras      String[]      @default([])
+  fps          Int           @default(30)
+  // LeRobot's info.json "robot_type" (e.g. "trossen_ai_stationary") -- the
+  // physical rig, not a per-episode attribute.
+  robotType    String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  tasks        Task[]
   episodes     Episode[]
   entitlements Entitlement[]
+}
+
+// A LeRobot "task" (from meta/tasks.jsonl) -- a distinct instruction a
+// dataset's episodes were captured performing. Most real datasets have
+// exactly one; multi-task datasets group deliverables by which
+// instruction they demonstrate.
+model Task {
+  id         String    @id @default(cuid())
+  dataset    Dataset   @relation(fields: [datasetId], references: [id])
+  datasetId  String
+  taskIndex  Int
+  title      String
+  episodes   Episode[]
+
+  @@unique([datasetId, taskIndex])
 }
 
 model Episode {
   id              String    @id @default(cuid())
   dataset         Dataset   @relation(fields: [datasetId], references: [id])
   datasetId       String
+  // Set for real LeRobot-backed episodes (used to derive parquet/video keys
+  // via src/lib/lerobot.ts); null for the synthetic ingestion-queue demo
+  // episodes, which just use objectKey directly.
+  task            Task?     @relation(fields: [taskId], references: [id])
+  taskId          String?
+  episodeIndex    Int?
   capturedAt      DateTime
   durationSeconds Int
   sizeBytes       BigInt
