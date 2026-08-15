@@ -9,9 +9,10 @@ import { prisma } from "./db";
  * It stores a plaintext email in a cookie and trusts it — that is only
  * acceptable because there is no real user data behind it in this scaffold.
  *
- * To replace with real auth (Clerk or Supabase Auth, per the architecture
- * memo): swap `getSession()`'s cookie read for that provider's session
- * lookup, keep the same `Session` shape, and delete sign-in/route.ts.
+ * To replace with real auth: swap `getSession()`'s cookie read for Clerk's
+ * session lookup, or a self-hosted option like Auth.js (NextAuth) using the
+ * Prisma adapter against this same Railway Postgres database. Keep the same
+ * `Session` shape, and delete sign-in/route.ts.
  */
 
 export const SESSION_COOKIE = "objectways_mock_session";

@@ -1,15 +1,19 @@
 # Objectways Data
 
 Next.js scaffold for the robotics dataset catalog: **one dataset registry, three
-access-level doors** (Samples / Uploads / Datasets) over the NAS → R2 pipeline.
+access-level doors** (Samples / Uploads / Datasets) over the NAS/MinIO pipeline.
 
 ## Architecture recap
 
-- **NAS** — internal, push-only capture staging (not modeled in this app; the
-  ingestion worker that reads from it is a separate service).
-- **R2** — object storage for both public sample clips and licensed customer
-  datasets. Downloads are signed URLs straight from R2 (`src/lib/r2.ts`) —
-  the app server never proxies file bytes.
+- **NAS + MinIO** — a QNAP NAS running MinIO (S3-compatible) as an app, so
+  MinIO's storage backend is the NAS's own disk — there's no separate
+  copy-to-object-storage step. The NAS is exposed to the internet through
+  the QNAP's reverse proxy (`https://nas.objectways.com`, Let's Encrypt
+  cert), and everything — public sample clips and licensed customer
+  datasets alike — lives in one bucket (`teleoperation`). Downloads are
+  signed URLs straight from MinIO (`src/lib/minio.ts`) — the app server
+  never proxies file bytes. The ingestion worker that validates and writes
+  captures into MinIO is a separate service, not modeled in this app.
 - **One Postgres-shaped catalog** (`prisma/schema.prisma`) — `Dataset`,
   `Episode`, `Modality`, `Organization`, `Entitlement`. Samples, Uploads, and
   Datasets are access-tier filters over this same registry
@@ -27,9 +31,9 @@ access-level doors** (Samples / Uploads / Datasets) over the NAS → R2 pipeline
 
 ```bash
 npm install
-cp .env.example .env
-npm run db:migrate   # creates prisma/dev.db (SQLite) and applies the schema
-npm run db:seed      # seeds modalities, sample/customer datasets, episodes, demo users
+cp .env.example .env   # fill in DATABASE_URL from your Railway Postgres service
+npm run db:migrate     # applies the schema to that database
+npm run db:seed        # seeds modalities, sample/customer datasets, episodes, demo users
 npm run dev
 ```
 
@@ -41,20 +45,21 @@ Acme Robotics customer) to see each door render under its role.
 This is a design-to-code scaffold, not wired to live infrastructure yet:
 
 - **Auth** (`src/lib/auth.ts`) — a mock cookie-based session, not a real IdP.
-  Replace `getSession()`'s cookie read with a Clerk or Supabase Auth session
-  lookup (per the architecture memo) and delete `src/app/sign-in/*`. Keep the
-  `Session` type shape (`role`, `organizationId`) — the rest of the app reads
-  from that, not from cookies directly.
-- **Database** (`prisma/schema.prisma`) — SQLite locally for a zero-dependency
-  setup. For production, change `datasource db { provider = "postgresql" }`
-  and point `DATABASE_URL` at managed Postgres (Neon/Supabase). No SQLite-only
-  features are used, so this is a one-line change plus a fresh migration.
-- **R2** (`src/lib/r2.ts`) — real signed URLs once `R2_ACCOUNT_ID`,
-  `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` are set. Without them, it
-  falls back to `/placeholder-download` so every page stays clickable in dev.
+  Replace `getSession()`'s cookie read with a Clerk session lookup, or a
+  self-hosted option like Auth.js (NextAuth) using the Prisma adapter against
+  the same Railway Postgres database, and delete `src/app/sign-in/*`. Keep
+  the `Session` type shape (`role`, `organizationId`) — the rest of the app
+  reads from that, not from cookies directly.
+- **Database** (`prisma/schema.prisma`) — already targets Postgres
+  (`datasource db { provider = "postgresql" }`); point `DATABASE_URL` at your
+  Railway Postgres service's connection string to use it.
+- **MinIO** (`src/lib/minio.ts`) — real signed URLs once `MINIO_ENDPOINT`,
+  `MINIO_ACCESS_KEY`, and `MINIO_SECRET_KEY` are set. Without them, it falls
+  back to `/placeholder-download` so every page stays clickable in dev.
 - **Ingestion worker** — not part of this repo. `/uploads` reads whatever is
   already in the `Episode` table; the worker that validates, anonymizes, and
-  writes those rows from NAS captures is a separate service to build next.
+  writes those rows from NAS captures into MinIO is a separate service to
+  build next.
 
 ## Design system
 

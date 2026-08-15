@@ -88,48 +88,30 @@ async function main() {
     ],
   });
 
-  const sampleDatasets = [
-    {
-      slug: "egotask-sample",
-      title: "EgoTask — Sample",
-      modalityKey: "egocentric",
-      description: "Long-horizon task interaction clips for embodied AI and multistep robotics learning.",
+  // Real capture from the teleoperation bucket (LeRobot layout: data/meta/videos
+  // under chunk-000, 102 episodes, 3 wrist/overhead cameras) — confirmed via a
+  // live bucket listing. Everything else in that bucket is unreviewed raw
+  // capture staging (duplicates, typos, test uploads), not fit for the catalog.
+  await prisma.dataset.create({
+    data: {
+      slug: "clutter-sort",
+      title: "Clutter Sort",
+      description:
+        "Bimanual clutter-sorting manipulation episodes captured with a 3-camera rig (overhead plus both wrists).",
+      modalityId: modalities.get("teleop")!,
+      accessTier: "sample",
+      status: "published",
+      version: "v1",
+      sizeBytes: BigInt(580_931_773),
+      objectPrefix: "Clutter_sort/",
+      chunk: "chunk-000",
+      cameras: [
+        "observation.images.cam_high",
+        "observation.images.cam_left_wrist",
+        "observation.images.cam_right_wrist",
+      ],
     },
-    {
-      slug: "egograsp-sample",
-      title: "EgoGrasp — Sample",
-      modalityKey: "egocentric",
-      description: "Close-range hand-object interaction clips for dexterous manipulation models.",
-    },
-    {
-      slug: "teleop-kitchen-sample",
-      title: "Teleop Kitchen — Sample",
-      modalityKey: "teleop",
-      description: "Operator-driven kitchen manipulation traces with synced joint state logs.",
-    },
-    {
-      slug: "mocap-locomotion-sample",
-      title: "MOCAP Locomotion — Sample",
-      modalityKey: "mocap",
-      description: "Marker-based whole-body locomotion trajectories for humanoid gait training.",
-    },
-  ];
-
-  for (const d of sampleDatasets) {
-    await prisma.dataset.create({
-      data: {
-        slug: d.slug,
-        title: d.title,
-        description: d.description,
-        modalityId: modalities.get(d.modalityKey)!,
-        accessTier: "sample",
-        status: "published",
-        version: "v1",
-        sizeBytes: BigInt(2_500_000_000),
-        r2Prefix: `samples/${d.slug}/`,
-      },
-    });
-  }
+  });
 
   const acmeDataset = await prisma.dataset.create({
     data: {
@@ -141,7 +123,7 @@ async function main() {
       status: "published",
       version: "v2",
       sizeBytes: BigInt(1_400_000_000_000),
-      r2Prefix: "datasets/egograsp-acme-v2/",
+      objectPrefix: "datasets/egograsp-acme-v2/",
     },
   });
 
@@ -159,7 +141,7 @@ async function main() {
       status: "draft",
       version: "v1",
       sizeBytes: BigInt(0),
-      r2Prefix: "datasets/egonav-indoor-draft/",
+      objectPrefix: "datasets/egonav-indoor-draft/",
     },
   });
 
@@ -184,7 +166,7 @@ async function main() {
         capturedAt: new Date(now.getTime() - e.offsetHours * 3600_000),
         durationSeconds: e.duration,
         sizeBytes: BigInt(80_000_000 + i * 12_000_000),
-        r2Key: `${draftDataset.r2Prefix}episode-${String(i + 1).padStart(3, "0")}.mp4`,
+        objectKey: `${draftDataset.objectPrefix}episode-${String(i + 1).padStart(3, "0")}.mp4`,
         status: e.status,
         rejectionReason: e.rejectionReason,
       },

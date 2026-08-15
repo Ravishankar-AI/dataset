@@ -7,9 +7,9 @@ import { PipelineDiagram } from "@/components/pipeline-diagram";
 import { listModalities } from "@/lib/catalog";
 
 const STEPS = [
-  { num: "01", title: "Capture", body: "Rigs write raw episodes to an internal NAS — never exposed to the internet." },
+  { num: "01", title: "Capture", body: "Rigs write raw episodes into MinIO running on our internal NAS." },
   { num: "02", title: "Validate", body: "An ingestion worker checks each episode, anonymizes faces, and rejects bad captures." },
-  { num: "03", title: "Catalog", body: "Passing episodes push to R2 and register in the dataset catalog with full sensor metadata." },
+  { num: "03", title: "Catalog", body: "Passing episodes register in the dataset catalog with full sensor metadata — no copy step, the bytes stay on the NAS." },
   { num: "04", title: "Access", body: "Samples, Uploads, and Datasets each read the same catalog, filtered to what you're allowed to see." },
 ];
 
