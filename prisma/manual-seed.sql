@@ -22,11 +22,14 @@ insert into "User" (id, email, name, role, "organizationId") values
   ('usr_contributor', 'capture-team@objectways.com', 'Capture Team', 'contributor', null),
   ('usr_customer', 'ml-lead@acme-robotics.example', 'Acme ML Lead', 'customer', 'org_acme_robotics');
 
+-- Clutter Sort is real capture data confirmed via a live bucket listing
+-- (LeRobot layout: data/meta/videos under chunk-000, 102 episodes, 3
+-- cameras). Everything else in the bucket is unreviewed raw capture
+-- staging, not fit for the catalog.
+insert into "Dataset" (id, slug, title, description, "modalityId", "accessTier", status, version, "sizeBytes", "objectPrefix", chunk, cameras, "updatedAt") values
+  ('ds_clutter_sort', 'clutter-sort', 'Clutter Sort', 'Bimanual clutter-sorting manipulation episodes captured with a 3-camera rig (overhead plus both wrists).', 'mod_teleop', 'sample', 'published', 'v1', 580931773, 'Clutter_sort/', 'chunk-000', ARRAY['observation.images.cam_high','observation.images.cam_left_wrist','observation.images.cam_right_wrist'], now());
+
 insert into "Dataset" (id, slug, title, description, "modalityId", "accessTier", status, version, "sizeBytes", "objectPrefix", "updatedAt") values
-  ('ds_egotask_sample', 'egotask-sample', 'EgoTask — Sample', 'Long-horizon task interaction clips for embodied AI and multistep robotics learning.', 'mod_egocentric', 'sample', 'published', 'v1', 2500000000, 'samples/egotask-sample/', now()),
-  ('ds_egograsp_sample', 'egograsp-sample', 'EgoGrasp — Sample', 'Close-range hand-object interaction clips for dexterous manipulation models.', 'mod_egocentric', 'sample', 'published', 'v1', 2500000000, 'samples/egograsp-sample/', now()),
-  ('ds_teleop_kitchen_sample', 'teleop-kitchen-sample', 'Teleop Kitchen — Sample', 'Operator-driven kitchen manipulation traces with synced joint state logs.', 'mod_teleop', 'sample', 'published', 'v1', 2500000000, 'samples/teleop-kitchen-sample/', now()),
-  ('ds_mocap_locomotion_sample', 'mocap-locomotion-sample', 'MOCAP Locomotion — Sample', 'Marker-based whole-body locomotion trajectories for humanoid gait training.', 'mod_mocap', 'sample', 'published', 'v1', 2500000000, 'samples/mocap-locomotion-sample/', now()),
   ('ds_egograsp_acme_v2', 'egograsp-acme-v2', 'EgoGrasp — Acme Custom Capture', 'Custom EgoGrasp campaign scoped to Acme''s warehouse SKUs, 40 hours across 3 sites.', 'mod_egocentric', 'customer', 'published', 'v2', 1400000000000, 'datasets/egograsp-acme-v2/', now()),
   ('ds_egonav_indoor_draft', 'egonav-indoor-draft', 'EgoNav — Indoor Navigation (in review)', 'GPS-denied indoor navigation traces through malls, offices, and staircases.', 'mod_exocentric', 'customer', 'draft', 'v1', 0, 'datasets/egonav-indoor-draft/', now());
 

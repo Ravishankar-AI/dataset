@@ -2,7 +2,6 @@ import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { getDatasetForViewer } from "@/lib/catalog";
 import { formatBytes } from "@/lib/format";
-import { requestDownload } from "./actions";
 
 export default async function DatasetDetailPage({
   params,
@@ -45,17 +44,15 @@ export default async function DatasetDetailPage({
         </div>
       </div>
 
-      <form action={requestDownload}>
-        <input type="hidden" name="slug" value={dataset.slug} />
-        <button
-          type="submit"
-          className="inline-flex items-center gap-2 rounded-pill border border-line-strong bg-line-strong px-5 py-3 font-mono text-[0.78rem] uppercase tracking-wider text-paper transition-colors hover:opacity-90"
-        >
-          Get Signed Download URL <span aria-hidden>→</span>
-        </button>
-      </form>
+      <a
+        href={`/datasets/${dataset.slug}/manifest`}
+        className="inline-flex items-center gap-2 rounded-pill border border-line-strong bg-line-strong px-5 py-3 font-mono text-[0.78rem] uppercase tracking-wider text-paper transition-colors hover:opacity-90"
+      >
+        Get Download Manifest <span aria-hidden>→</span>
+      </a>
       <p className="mt-3 text-[0.72rem] text-ink-faint">
-        Generates a time-limited link straight to MinIO on the NAS — the app server never proxies the file.
+        Generates a manifest of time-limited links to every file in this dataset, straight from MinIO on
+        the NAS — the app server never proxies file bytes or zips anything server-side.
       </p>
     </div>
   );

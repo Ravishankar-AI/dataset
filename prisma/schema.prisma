@@ -65,7 +65,11 @@ model Dataset {
   status       String        @default("draft")
   version      String        @default("v1")
   sizeBytes    BigInt        @default(0)
+  // LeRobot dataset layout under objectPrefix: data/{chunk}/episode_NNNNNN.parquet,
+  // videos/{chunk}/{camera}/episode_NNNNNN.mp4 per entry in `cameras`.
   objectPrefix String
+  chunk        String        @default("chunk-000")
+  cameras      String[]      @default([])
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   episodes     Episode[]

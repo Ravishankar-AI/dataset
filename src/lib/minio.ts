@@ -1,4 +1,4 @@
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /**
@@ -58,4 +58,31 @@ export async function getSignedDownloadUrl(
 
 export function getPublicSampleUrl(key: string): Promise<{ url: string; isLive: boolean }> {
   return getSignedDownloadUrl(key, SAMPLE_URL_TTL_SECONDS);
+}
+
+// Unlike getSignedDownloadUrl (pure local computation, no network call),
+// this makes a real request to MinIO — it needs the QNAP reverse proxy to
+// serve a complete TLS chain (leaf + intermediate), which it currently
+// doesn't (confirmed via `openssl s_client -showcerts`). Fix that at the
+// reverse proxy before relying on this in production.
+export async function listObjectKeys(prefix: string): Promise<string[]> {
+  if (!hasMinioCredentials()) return [];
+
+  const keys: string[] = [];
+  let continuationToken: string | undefined;
+  do {
+    const response = await client().send(
+      new ListObjectsV2Command({
+        Bucket: BUCKET,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      })
+    );
+    for (const obj of response.Contents ?? []) {
+      if (obj.Key && !obj.Key.endsWith("/")) keys.push(obj.Key);
+    }
+    continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+  } while (continuationToken);
+
+  return keys;
 }
