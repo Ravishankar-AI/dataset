@@ -1,15 +1,9 @@
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { getPublicSampleUrl } from "@/lib/minio";
-import { episodeVideoKey, humanizeCameraName } from "@/lib/lerobot";
+import { listTasksForDataset } from "@/lib/catalog";
 import { formatBytes } from "@/lib/format";
-import { PillButton } from "@/components/pill-button";
-
-// Every sample dataset previews the same fixed episode, across all of its
-// cameras — real datasets have one video file per camera per episode, not
-// a single preview.mp4.
-const PREVIEW_EPISODE_INDEX = 0;
 
 export default async function SampleDetailPage({
   params,
@@ -26,14 +20,7 @@ export default async function SampleDetailPage({
   });
   if (!dataset) notFound();
 
-  const cameraPreviews = await Promise.all(
-    dataset.cameras.map(async (camera) => ({
-      camera,
-      label: humanizeCameraName(camera),
-      ...(await getPublicSampleUrl(episodeVideoKey(dataset, PREVIEW_EPISODE_INDEX, camera))),
-    }))
-  );
-  const anyLive = cameraPreviews.some((p) => p.isLive);
+  const tasks = await listTasksForDataset(dataset.id);
 
   return (
     <div className="mx-auto max-w-[1230px] px-8 py-16">
@@ -43,7 +30,7 @@ export default async function SampleDetailPage({
       <h1 className="mb-4 text-[2rem] sm:text-[2.4rem]">{dataset.title}</h1>
       <p className="mb-8 max-w-[62ch] text-ink-soft">{dataset.description}</p>
 
-      <div className="mb-8 grid grid-cols-2 gap-5 border-y border-dashed border-line py-6 sm:grid-cols-4">
+      <div className="mb-10 grid grid-cols-2 gap-5 border-y border-dashed border-line py-6 sm:grid-cols-4">
         <div>
           <b className="block font-display text-[1.1rem] font-extrabold tabular-nums">{dataset.version}</b>
           <span className="text-[0.66rem] uppercase tracking-wider text-ink-faint">Version</span>
@@ -64,35 +51,28 @@ export default async function SampleDetailPage({
         </div>
       </div>
 
-      {cameraPreviews.length > 0 ? (
-        <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-3">
-          {cameraPreviews.map((p) => (
-            <div key={p.camera}>
-              <video
-                src={p.url}
-                controls
-                muted
-                className="aspect-video w-full rounded border border-line bg-line-strong"
-              />
-              <div className="mt-2 text-center text-[0.7rem] uppercase tracking-wider text-ink-faint">
-                {p.label}
-              </div>
-            </div>
+      <h2 className="mb-1.5 font-display text-[1.15rem] font-extrabold">Tasks</h2>
+      <p className="mb-5 text-[0.85rem] text-ink-soft">
+        Datasets are grouped by the instruction each episode demonstrates.
+      </p>
+
+      {tasks.length > 0 ? (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          {tasks.map((t) => (
+            <Link
+              key={t.id}
+              href={`/samples/${slug}/tasks/${t.id}`}
+              className="block border border-line bg-card p-6 transition-colors hover:border-line-strong"
+            >
+              <h3 className="mb-1.5 font-display text-[1.05rem] font-extrabold">{t.title}</h3>
+              <span className="font-mono text-[0.72rem] uppercase tracking-wider text-ink-faint">
+                {t._count.episodes} deliverable{t._count.episodes === 1 ? "" : "s"}
+              </span>
+            </Link>
           ))}
         </div>
       ) : (
-        <p className="mb-8 text-[0.85rem] text-ink-faint">No camera preview configured for this dataset.</p>
-      )}
-
-      <div className="flex flex-wrap items-center gap-3">
-        <PillButton href="/datasets" variant="ghost" icon="arrow">
-          Request the Full Dataset
-        </PillButton>
-      </div>
-      {!anyLive && cameraPreviews.length > 0 && (
-        <p className="mt-3 text-[0.72rem] text-ink-faint">
-          MinIO credentials aren&apos;t configured in this environment, so these link to a placeholder.
-        </p>
+        <p className="text-[0.85rem] text-ink-faint">No tasks cataloged for this dataset yet.</p>
       )}
     </div>
   );

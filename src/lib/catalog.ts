@@ -59,6 +59,32 @@ export async function getDatasetForViewer(slug: string, session: Session | null)
   return { dataset, allowed: false as const };
 }
 
+export async function listTasksForDataset(datasetId: string) {
+  return prisma.task.findMany({
+    where: { datasetId },
+    orderBy: { taskIndex: "asc" },
+    include: { _count: { select: { episodes: true } } },
+  });
+}
+
+export async function getTaskForDataset(datasetId: string, taskId: string) {
+  return prisma.task.findFirst({ where: { id: taskId, datasetId } });
+}
+
+export async function listEpisodesForTask(taskId: string) {
+  return prisma.episode.findMany({
+    where: { taskId },
+    orderBy: { episodeIndex: "asc" },
+  });
+}
+
+export async function getEpisodeForTask(taskId: string, episodeId: string) {
+  return prisma.episode.findFirst({
+    where: { id: episodeId, taskId },
+    include: { task: true },
+  });
+}
+
 export async function listIngestionQueue() {
   return prisma.episode.findMany({
     include: { dataset: true },
