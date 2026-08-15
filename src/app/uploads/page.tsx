@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { listIngestionQueue, getIngestionStats } from "@/lib/catalog";
+import { listNasInventory } from "@/lib/nas";
 import { formatBytes, formatRelativeTime, formatDuration } from "@/lib/format";
 
 export const metadata = { title: "Uploads — Objectways Data" };
@@ -16,7 +17,11 @@ export default async function UploadsPage() {
   const session = await requireRole("contributor", "admin");
   if (!session) redirect("/sign-in?next=/uploads");
 
-  const [episodes, stats] = await Promise.all([listIngestionQueue(), getIngestionStats()]);
+  const [episodes, stats, nas] = await Promise.all([
+    listIngestionQueue(),
+    getIngestionStats(),
+    listNasInventory(),
+  ]);
 
   return (
     <div className="mx-auto max-w-[1180px] px-8 py-16">
@@ -36,6 +41,41 @@ export default async function UploadsPage() {
             <span className="text-[0.66rem] uppercase tracking-wider text-ink-faint">{s}</span>
           </div>
         ))}
+      </div>
+
+      <div className="mb-10">
+        <h2 className="mb-1.5 font-display text-[1.15rem] font-extrabold">NAS Bucket</h2>
+        <p className="mb-4 max-w-[62ch] text-[0.85rem] text-ink-soft">
+          Raw folders currently sitting in{" "}
+          <code className="font-mono text-ink">{nas.bucket || "(NAS_BUCKET unset)"}</code> on the NAS, before
+          the ingestion worker validates and catalogs them as episodes above.
+        </p>
+
+        {!nas.isLive && (
+          <p className="border border-dashed border-line px-4 py-3 text-[0.8rem] text-ink-faint">
+            NAS credentials aren&apos;t configured (set <code className="font-mono">NAS_ENDPOINT</code>,{" "}
+            <code className="font-mono">NAS_ACCESS_KEY_ID</code>, <code className="font-mono">NAS_SECRET_ACCESS_KEY</code>,{" "}
+            <code className="font-mono">NAS_BUCKET</code>) — nothing to list yet.
+          </p>
+        )}
+
+        {nas.isLive && nas.entries.length === 0 && (
+          <p className="text-ink-faint">Bucket is empty.</p>
+        )}
+
+        {nas.isLive && nas.entries.length > 0 && (
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 sm:grid-cols-3 md:grid-cols-4">
+            {nas.entries.map((entry) => (
+              <div
+                key={entry.prefix}
+                className="truncate border-b border-dashed border-line py-1.5 font-mono text-[0.78rem] text-ink-soft"
+                title={entry.name}
+              >
+                {entry.name}/
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="overflow-x-auto">

@@ -5,8 +5,10 @@ access-level doors** (Samples / Uploads / Datasets) over the NAS → R2 pipeline
 
 ## Architecture recap
 
-- **NAS** — internal, push-only capture staging (not modeled in this app; the
-  ingestion worker that reads from it is a separate service).
+- **NAS** — internal, push-only capture staging. `/uploads` shows a
+  read-only, live folder listing straight from the NAS (`src/lib/nas.ts`);
+  turning a NAS entry into a cataloged `Episode` row is still the
+  ingestion worker's job, a separate service not modeled in this app.
 - **R2** — object storage for both public sample clips and licensed customer
   datasets. Downloads are signed URLs straight from R2 (`src/lib/r2.ts`) —
   the app server never proxies file bytes.
@@ -52,6 +54,10 @@ This is a design-to-code scaffold, not wired to live infrastructure yet:
 - **R2** (`src/lib/r2.ts`) — real signed URLs once `R2_ACCOUNT_ID`,
   `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` are set. Without them, it
   falls back to `/placeholder-download` so every page stays clickable in dev.
+- **NAS** (`src/lib/nas.ts`) — real, live folder listing on `/uploads` once
+  `NAS_ENDPOINT`, `NAS_ACCESS_KEY_ID`, `NAS_SECRET_ACCESS_KEY`, and
+  `NAS_BUCKET` are set (MinIO/S3-compatible). Without them, the "NAS Bucket"
+  section just says so instead of listing anything.
 - **Ingestion worker** — not part of this repo. `/uploads` reads whatever is
   already in the `Episode` table; the worker that validates, anonymizes, and
   writes those rows from NAS captures is a separate service to build next.
