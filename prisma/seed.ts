@@ -1,7 +1,116 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/lib/password";
+import { episodeParquetKey } from "../src/lib/lerobot";
 
 const prisma = new PrismaClient();
+
+// Real per-episode data from Clutter_sort/meta/episodes.jsonl (durationSeconds
+// = frame length / 30fps, rounded) cross-referenced with real per-episode
+// byte sizes from a live bucket listing (parquet + all 3 camera videos).
+const CLUTTER_SORT_EPISODES = [
+  { episodeIndex: 0, durationSeconds: 13, sizeBytes: 4126488 },
+  { episodeIndex: 1, durationSeconds: 12, sizeBytes: 4127278 },
+  { episodeIndex: 2, durationSeconds: 15, sizeBytes: 5701571 },
+  { episodeIndex: 3, durationSeconds: 11, sizeBytes: 3938772 },
+  { episodeIndex: 4, durationSeconds: 12, sizeBytes: 4257283 },
+  { episodeIndex: 5, durationSeconds: 17, sizeBytes: 5691328 },
+  { episodeIndex: 6, durationSeconds: 13, sizeBytes: 4389753 },
+  { episodeIndex: 7, durationSeconds: 12, sizeBytes: 4788621 },
+  { episodeIndex: 8, durationSeconds: 17, sizeBytes: 6448855 },
+  { episodeIndex: 9, durationSeconds: 16, sizeBytes: 6136563 },
+  { episodeIndex: 10, durationSeconds: 15, sizeBytes: 5564866 },
+  { episodeIndex: 11, durationSeconds: 16, sizeBytes: 6610610 },
+  { episodeIndex: 12, durationSeconds: 16, sizeBytes: 6414489 },
+  { episodeIndex: 13, durationSeconds: 17, sizeBytes: 6402892 },
+  { episodeIndex: 14, durationSeconds: 13, sizeBytes: 5009817 },
+  { episodeIndex: 15, durationSeconds: 15, sizeBytes: 5898471 },
+  { episodeIndex: 16, durationSeconds: 12, sizeBytes: 4948301 },
+  { episodeIndex: 17, durationSeconds: 14, sizeBytes: 5601373 },
+  { episodeIndex: 18, durationSeconds: 17, sizeBytes: 6647726 },
+  { episodeIndex: 19, durationSeconds: 15, sizeBytes: 6340326 },
+  { episodeIndex: 20, durationSeconds: 11, sizeBytes: 4276418 },
+  { episodeIndex: 21, durationSeconds: 15, sizeBytes: 5789164 },
+  { episodeIndex: 22, durationSeconds: 14, sizeBytes: 6014457 },
+  { episodeIndex: 23, durationSeconds: 17, sizeBytes: 7190874 },
+  { episodeIndex: 24, durationSeconds: 14, sizeBytes: 6104775 },
+  { episodeIndex: 25, durationSeconds: 13, sizeBytes: 5673354 },
+  { episodeIndex: 26, durationSeconds: 13, sizeBytes: 5441581 },
+  { episodeIndex: 27, durationSeconds: 19, sizeBytes: 7732845 },
+  { episodeIndex: 28, durationSeconds: 19, sizeBytes: 8159516 },
+  { episodeIndex: 29, durationSeconds: 16, sizeBytes: 7004891 },
+  { episodeIndex: 30, durationSeconds: 16, sizeBytes: 6814772 },
+  { episodeIndex: 31, durationSeconds: 13, sizeBytes: 5030684 },
+  { episodeIndex: 32, durationSeconds: 17, sizeBytes: 6947309 },
+  { episodeIndex: 33, durationSeconds: 17, sizeBytes: 6703262 },
+  { episodeIndex: 34, durationSeconds: 15, sizeBytes: 6066914 },
+  { episodeIndex: 35, durationSeconds: 15, sizeBytes: 6153607 },
+  { episodeIndex: 36, durationSeconds: 15, sizeBytes: 5964280 },
+  { episodeIndex: 37, durationSeconds: 15, sizeBytes: 6053317 },
+  { episodeIndex: 38, durationSeconds: 20, sizeBytes: 7554827 },
+  { episodeIndex: 39, durationSeconds: 16, sizeBytes: 6098922 },
+  { episodeIndex: 40, durationSeconds: 18, sizeBytes: 7114978 },
+  { episodeIndex: 41, durationSeconds: 15, sizeBytes: 6084126 },
+  { episodeIndex: 42, durationSeconds: 12, sizeBytes: 5223584 },
+  { episodeIndex: 43, durationSeconds: 16, sizeBytes: 7507504 },
+  { episodeIndex: 44, durationSeconds: 11, sizeBytes: 4272181 },
+  { episodeIndex: 45, durationSeconds: 15, sizeBytes: 5712872 },
+  { episodeIndex: 46, durationSeconds: 13, sizeBytes: 5690751 },
+  { episodeIndex: 47, durationSeconds: 18, sizeBytes: 7387484 },
+  { episodeIndex: 48, durationSeconds: 13, sizeBytes: 4998910 },
+  { episodeIndex: 49, durationSeconds: 14, sizeBytes: 5629851 },
+  { episodeIndex: 50, durationSeconds: 14, sizeBytes: 6132416 },
+  { episodeIndex: 51, durationSeconds: 13, sizeBytes: 5118277 },
+  { episodeIndex: 52, durationSeconds: 13, sizeBytes: 4626853 },
+  { episodeIndex: 53, durationSeconds: 14, sizeBytes: 5245594 },
+  { episodeIndex: 54, durationSeconds: 15, sizeBytes: 6427039 },
+  { episodeIndex: 55, durationSeconds: 15, sizeBytes: 5891437 },
+  { episodeIndex: 56, durationSeconds: 10, sizeBytes: 3506122 },
+  { episodeIndex: 57, durationSeconds: 13, sizeBytes: 5284234 },
+  { episodeIndex: 58, durationSeconds: 16, sizeBytes: 5822146 },
+  { episodeIndex: 59, durationSeconds: 11, sizeBytes: 4340765 },
+  { episodeIndex: 60, durationSeconds: 11, sizeBytes: 3914955 },
+  { episodeIndex: 61, durationSeconds: 10, sizeBytes: 4011852 },
+  { episodeIndex: 62, durationSeconds: 13, sizeBytes: 5148248 },
+  { episodeIndex: 63, durationSeconds: 15, sizeBytes: 6182782 },
+  { episodeIndex: 64, durationSeconds: 12, sizeBytes: 4843399 },
+  { episodeIndex: 65, durationSeconds: 17, sizeBytes: 6224669 },
+  { episodeIndex: 66, durationSeconds: 13, sizeBytes: 5053996 },
+  { episodeIndex: 67, durationSeconds: 13, sizeBytes: 5163348 },
+  { episodeIndex: 68, durationSeconds: 13, sizeBytes: 5303355 },
+  { episodeIndex: 69, durationSeconds: 11, sizeBytes: 4447908 },
+  { episodeIndex: 70, durationSeconds: 11, sizeBytes: 4278646 },
+  { episodeIndex: 71, durationSeconds: 10, sizeBytes: 4316586 },
+  { episodeIndex: 72, durationSeconds: 11, sizeBytes: 4540070 },
+  { episodeIndex: 73, durationSeconds: 14, sizeBytes: 6741188 },
+  { episodeIndex: 74, durationSeconds: 16, sizeBytes: 7993851 },
+  { episodeIndex: 75, durationSeconds: 12, sizeBytes: 5476037 },
+  { episodeIndex: 76, durationSeconds: 14, sizeBytes: 7033735 },
+  { episodeIndex: 77, durationSeconds: 13, sizeBytes: 5713605 },
+  { episodeIndex: 78, durationSeconds: 16, sizeBytes: 7451691 },
+  { episodeIndex: 79, durationSeconds: 13, sizeBytes: 6204658 },
+  { episodeIndex: 80, durationSeconds: 15, sizeBytes: 7095753 },
+  { episodeIndex: 81, durationSeconds: 13, sizeBytes: 6208821 },
+  { episodeIndex: 82, durationSeconds: 10, sizeBytes: 4080074 },
+  { episodeIndex: 83, durationSeconds: 13, sizeBytes: 5287480 },
+  { episodeIndex: 84, durationSeconds: 13, sizeBytes: 5190817 },
+  { episodeIndex: 85, durationSeconds: 13, sizeBytes: 5238301 },
+  { episodeIndex: 86, durationSeconds: 16, sizeBytes: 7938553 },
+  { episodeIndex: 87, durationSeconds: 13, sizeBytes: 5191818 },
+  { episodeIndex: 88, durationSeconds: 13, sizeBytes: 5195990 },
+  { episodeIndex: 89, durationSeconds: 12, sizeBytes: 4793644 },
+  { episodeIndex: 90, durationSeconds: 14, sizeBytes: 5635218 },
+  { episodeIndex: 91, durationSeconds: 14, sizeBytes: 5976624 },
+  { episodeIndex: 92, durationSeconds: 11, sizeBytes: 4697085 },
+  { episodeIndex: 93, durationSeconds: 11, sizeBytes: 4636667 },
+  { episodeIndex: 94, durationSeconds: 12, sizeBytes: 5577075 },
+  { episodeIndex: 95, durationSeconds: 11, sizeBytes: 5262354 },
+  { episodeIndex: 96, durationSeconds: 11, sizeBytes: 5129803 },
+  { episodeIndex: 97, durationSeconds: 12, sizeBytes: 5517012 },
+  { episodeIndex: 98, durationSeconds: 14, sizeBytes: 6691967 },
+  { episodeIndex: 99, durationSeconds: 15, sizeBytes: 6919115 },
+  { episodeIndex: 100, durationSeconds: 11, sizeBytes: 4311477 },
+  { episodeIndex: 101, durationSeconds: 14, sizeBytes: 6046464 },
+];
 
 // Demo password for every seeded account below — dev/demo only.
 const DEMO_PASSWORD = "password123";
@@ -101,7 +210,7 @@ async function main() {
   // under chunk-000, 102 episodes, 3 wrist/overhead cameras) — confirmed via a
   // live bucket listing. Everything else in that bucket is unreviewed raw
   // capture staging (duplicates, typos, test uploads), not fit for the catalog.
-  await prisma.dataset.create({
+  const clutterSort = await prisma.dataset.create({
     data: {
       slug: "clutter-sort",
       title: "Clutter Sort",
@@ -114,6 +223,8 @@ async function main() {
       sizeBytes: BigInt(580_931_773),
       objectPrefix: "Clutter_sort/",
       chunk: "chunk-000",
+      fps: 30,
+      robotType: "trossen_ai_stationary",
       cameras: [
         "observation.images.cam_high",
         "observation.images.cam_left_wrist",
@@ -121,6 +232,33 @@ async function main() {
       ],
     },
   });
+
+  // From Clutter_sort/meta/tasks.jsonl -- this dataset has exactly one task.
+  const clutterSortTask = await prisma.task.create({
+    data: {
+      datasetId: clutterSort.id,
+      taskIndex: 0,
+      title: "Picking a specific item from a clutter",
+    },
+  });
+
+  const clutterSortNow = new Date();
+  for (const e of CLUTTER_SORT_EPISODES) {
+    await prisma.episode.create({
+      data: {
+        datasetId: clutterSort.id,
+        taskId: clutterSortTask.id,
+        episodeIndex: e.episodeIndex,
+        capturedAt: new Date(
+          clutterSortNow.getTime() - (101 - e.episodeIndex) * 3 * 3600_000
+        ),
+        durationSeconds: e.durationSeconds,
+        sizeBytes: BigInt(e.sizeBytes),
+        objectKey: episodeParquetKey(clutterSort, e.episodeIndex),
+        status: "cataloged",
+      },
+    });
+  }
 
   const acmeDataset = await prisma.dataset.create({
     data: {
