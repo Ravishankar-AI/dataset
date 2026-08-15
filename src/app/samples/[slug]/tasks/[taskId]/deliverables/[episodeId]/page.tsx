@@ -61,8 +61,8 @@ export default async function DeliverableDetailPage({
           <span className="text-[0.66rem] uppercase tracking-wider text-ink-faint">Robot type</span>
         </div>
         <div>
-          <b className="block font-display text-[1.1rem] font-extrabold tabular-nums">{dataset.cameras.length}</b>
-          <span className="text-[0.66rem] uppercase tracking-wider text-ink-faint">Cameras</span>
+          <b className="block font-display text-[1.1rem] font-extrabold">{dataset.cameraModel ?? "—"}</b>
+          <span className="text-[0.66rem] uppercase tracking-wider text-ink-faint">Camera model</span>
         </div>
         <div>
           <b className="block font-display text-[1.1rem] font-extrabold tabular-nums">{dataset.fps}</b>

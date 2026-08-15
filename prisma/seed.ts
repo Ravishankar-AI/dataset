@@ -224,7 +224,8 @@ async function main() {
       objectPrefix: "Clutter_sort/",
       chunk: "chunk-000",
       fps: 30,
-      robotType: "trossen_ai_stationary",
+      robotType: "Trossen Robotics Mobile AI",
+      cameraModel: "Intel RealSense D405",
       cameras: [
         "observation.images.cam_high",
         "observation.images.cam_left_wrist",
