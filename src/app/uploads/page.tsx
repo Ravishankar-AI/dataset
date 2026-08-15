@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { listIngestionQueue, getIngestionStats } from "@/lib/catalog";
+import { listBucketEntries } from "@/lib/minio";
 import { formatBytes, formatRelativeTime, formatDuration } from "@/lib/format";
 
 export const metadata = { title: "Uploads — Objectways Data" };
@@ -16,7 +17,11 @@ export default async function UploadsPage() {
   const session = await requireRole("contributor", "admin");
   if (!session) redirect("/sign-in?next=/uploads");
 
-  const [episodes, stats] = await Promise.all([listIngestionQueue(), getIngestionStats()]);
+  const [episodes, stats, bucket] = await Promise.all([
+    listIngestionQueue(),
+    getIngestionStats(),
+    listBucketEntries(),
+  ]);
 
   return (
     <div className="mx-auto max-w-[1180px] px-8 py-16">
@@ -36,6 +41,39 @@ export default async function UploadsPage() {
             <span className="text-[0.66rem] uppercase tracking-wider text-ink-faint">{s}</span>
           </div>
         ))}
+      </div>
+
+      <div className="mb-10">
+        <h2 className="mb-1.5 font-display text-[1.15rem] font-extrabold">NAS Bucket</h2>
+        <p className="mb-4 max-w-[62ch] text-[0.85rem] text-ink-soft">
+          Raw folders currently sitting in <code className="font-mono text-ink">{bucket.bucket}</code> on
+          the NAS, before the ingestion worker validates and catalogs them as episodes above. Most of
+          these are unreviewed capture staging, not yet fit for the catalog.
+        </p>
+
+        {!bucket.isLive && (
+          <p className="border border-dashed border-line px-4 py-3 text-[0.8rem] text-ink-faint">
+            MinIO credentials aren&apos;t configured (set <code className="font-mono">MINIO_ENDPOINT</code>,{" "}
+            <code className="font-mono">MINIO_ACCESS_KEY</code>, <code className="font-mono">MINIO_SECRET_KEY</code>,{" "}
+            <code className="font-mono">MINIO_BUCKET</code>) — nothing to list yet.
+          </p>
+        )}
+
+        {bucket.isLive && bucket.entries.length === 0 && <p className="text-ink-faint">Bucket is empty.</p>}
+
+        {bucket.isLive && bucket.entries.length > 0 && (
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 sm:grid-cols-3 md:grid-cols-4">
+            {bucket.entries.map((entry) => (
+              <div
+                key={entry.prefix}
+                className="truncate border-b border-dashed border-line py-1.5 font-mono text-[0.78rem] text-ink-soft"
+                title={entry.name}
+              >
+                {entry.name}/
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -58,7 +96,7 @@ export default async function UploadsPage() {
                 <td
                   className={`py-4 pr-4 font-mono text-[0.8rem] ${i === episodes.length - 1 ? "border-b border-line" : "border-b border-dashed border-line"}`}
                 >
-                  {e.r2Key.split("/").pop()}
+                  {e.objectKey.split("/").pop()}
                 </td>
                 <td
                   className={`py-4 pr-4 text-[0.85rem] ${i === episodes.length - 1 ? "border-b border-line" : "border-b border-dashed border-line"}`}

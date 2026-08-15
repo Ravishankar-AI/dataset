@@ -3,11 +3,10 @@
 // One dataset registry, filtered by access tier at the query layer (see
 // src/lib/catalog.ts) rather than split into separate databases.
 //
-// Postgres via Supabase. DATABASE_URL is the pooled (transaction-mode,
-// port 6543) connection the app uses at runtime; DIRECT_URL is the
-// unpooled (session-mode, port 5432) connection Prisma needs to run
-// migrations, since the transaction pooler doesn't support the prepared
-// statements migrations rely on.
+// Postgres via Railway. DATABASE_URL points at the Railway Postgres
+// service and is used both at runtime and for `prisma migrate` — no
+// separate pooled/direct split needed since Railway doesn't put a
+// transaction-mode pooler in front of it by default.
 //
 // Note: fields documented as enums are plain Strings — this schema also
 // ran on SQLite during early scaffolding, which has no native enum type,
@@ -19,9 +18,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Organization {
@@ -68,7 +66,11 @@ model Dataset {
   status       String        @default("draft")
   version      String        @default("v1")
   sizeBytes    BigInt        @default(0)
-  r2Prefix     String
+  // LeRobot dataset layout under objectPrefix: data/{chunk}/episode_NNNNNN.parquet,
+  // videos/{chunk}/{camera}/episode_NNNNNN.mp4 per entry in `cameras`.
+  objectPrefix String
+  chunk        String        @default("chunk-000")
+  cameras      String[]      @default([])
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   episodes     Episode[]
@@ -82,7 +84,7 @@ model Episode {
   capturedAt      DateTime
   durationSeconds Int
   sizeBytes       BigInt
-  r2Key           String
+  objectKey       String
   // "queued" | "validating" | "cataloged" | "rejected"
   status          String    @default("queued")
   rejectionReason String?

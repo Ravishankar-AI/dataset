@@ -6,9 +6,10 @@ import { prisma } from "./db";
  * (src/lib/password.ts), then the cookie holds the user's email and every
  * request re-reads the user row rather than trusting a session token.
  *
- * To replace with a real identity provider (Clerk or Supabase Auth, per the
- * architecture memo): swap `getSession()`'s cookie read for that provider's
- * session lookup and keep the same `Session` shape.
+ * To replace with a real identity provider: swap `getSession()`'s cookie
+ * read for Clerk's session lookup, or a self-hosted option like Auth.js
+ * (NextAuth) using the Prisma adapter against this same Railway Postgres,
+ * and keep the same `Session` shape.
  */
 
 export const SESSION_COOKIE = "objectways_mock_session";

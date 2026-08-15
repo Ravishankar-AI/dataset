@@ -1,18 +1,26 @@
 # Objectways Data
 
 Next.js scaffold for the robotics dataset catalog: **one dataset registry, three
-access-level doors** (Samples / Uploads / Datasets) over the NAS → MinIO pipeline.
+access-level doors** (Samples / Uploads / Datasets) over the NAS/MinIO pipeline.
 
 ## Architecture recap
 
-- **NAS** — internal, push-only capture staging (not modeled in this app; the
-  ingestion worker that reads from it is a separate service). It never talks
-  to this app directly or gets exposed to the internet.
-- **MinIO** — self-hosted, S3-compatible object storage running against the
-  NAS's own disks (not a cloud provider — avoids cloud storage/egress
-  billing) for both public sample clips and licensed customer datasets.
-  Downloads are signed URLs straight from MinIO (`src/lib/storage.ts`) — the
-  app server never proxies file bytes.
+- **NAS + MinIO** — a QNAP NAS running MinIO (S3-compatible) as an app, so
+  MinIO's storage backend is the NAS's own disk — there's no separate
+  copy-to-object-storage step. Everything — public sample clips, licensed
+  customer datasets, and raw unreviewed capture staging alike — lives in one
+  bucket (`teleoperation`). Real captures follow the
+  [LeRobot](https://huggingface.co/docs/lerobot) layout:
+  `<prefix>data/<chunk>/episode_NNNNNN.parquet` plus one
+  `<prefix>videos/<chunk>/<camera>/episode_NNNNNN.mp4` per camera — not a
+  single flat preview clip or archive file. Downloads are signed URLs
+  straight from MinIO (`src/lib/minio.ts`) — the app server never proxies
+  file bytes, and a licensed dataset's "download" is a manifest of
+  per-file signed URLs (`/datasets/[slug]/manifest`), not a single archive.
+  `/uploads` also shows a live, read-only top-level folder listing of the
+  bucket, since most of what's actually in there is unreviewed raw capture
+  staging (duplicates, typos, test uploads) rather than catalog-ready data —
+  only one dataset (`Clutter Sort`) has been verified clean enough to seed.
 - **One Postgres-shaped catalog** (`prisma/schema.prisma`) — `Dataset`,
   `Episode`, `Modality`, `Organization`, `Entitlement`. Samples, Uploads, and
   Datasets are access-tier filters over this same registry
@@ -30,9 +38,9 @@ access-level doors** (Samples / Uploads / Datasets) over the NAS → MinIO pipel
 
 ```bash
 npm install
-cp .env.example .env
-npm run db:migrate   # creates prisma/dev.db (SQLite) and applies the schema
-npm run db:seed      # seeds modalities, sample/customer datasets, episodes, demo users
+cp .env.example .env   # fill in DATABASE_URL from your Railway Postgres service
+npm run db:migrate     # applies the schema to that database
+npm run db:seed        # seeds modalities, sample/customer datasets, episodes, demo users
 npm run dev
 ```
 
@@ -54,9 +62,9 @@ Pre-Deploy Command).
 1. **New project** → Deploy from GitHub repo → pick this repo/branch.
    Railway auto-detects Node.
 2. **Variables** — copy every key from `.env.example` into the service's
-   Variables tab, pointed at the real Supabase project and MinIO endpoint
-   (not the SQLite dev setup). Don't set `PORT`; Railway injects it and
-   `next start` reads it automatically.
+   Variables tab, pointed at the real Railway Postgres service and MinIO
+   endpoint. Don't set `PORT`; Railway injects it and `next start` reads it
+   automatically.
 3. **Custom domain** — Service → Settings → Networking → Custom Domain →
    enter `dataset.objectways.com`. Railway returns a CNAME target; add a
    CNAME record for the `dataset` subdomain at your DNS provider pointing to
@@ -66,29 +74,33 @@ Pre-Deploy Command).
 
 ## What's stubbed, and how to un-stub it
 
-This is a design-to-code scaffold, not wired to live infrastructure yet:
+This is a design-to-code scaffold, not fully wired to live infrastructure yet:
 
 - **Auth** (`src/lib/auth.ts`) — real password hashing (`src/lib/password.ts`,
-  scrypt) behind a plain cookie session, not a real IdP. Replace
-  `getSession()`'s cookie read with a Clerk or Supabase Auth session lookup
-  (per the architecture memo) and delete `src/app/sign-in/*` and
-  `src/app/register/*`. Keep the `Session` type shape (`role`,
-  `organizationId`) — the rest of the app reads from that, not from cookies
-  directly.
-- **Database** (`prisma/schema.prisma`) — SQLite locally for a zero-dependency
-  setup. For production, change `datasource db { provider = "postgresql" }`
-  and point `DATABASE_URL` at managed Postgres (Neon/Supabase). No SQLite-only
-  features are used, so this is a one-line change plus a fresh migration.
-- **Object storage** (`src/lib/storage.ts`) — real signed URLs once
-  `OBJECT_STORAGE_ENDPOINT`, `OBJECT_STORAGE_ACCESS_KEY_ID`, and
-  `OBJECT_STORAGE_SECRET_ACCESS_KEY` are set, pointed at a MinIO instance
-  running against the NAS's storage (`forcePathStyle` is required for
-  MinIO — see the client config). Without them, it falls back to
-  `/placeholder-download` so every page stays clickable in dev.
+  scrypt) behind a plain cookie session, not a real IdP — no email
+  verification or password reset flow. Replace `getSession()`'s cookie read
+  with a Clerk session lookup, or a self-hosted option like Auth.js
+  (NextAuth) using the Prisma adapter against this same Railway Postgres,
+  and delete `src/app/sign-in/*` and `src/app/register/*`. Keep the
+  `Session` type shape (`role`, `organizationId`) — the rest of the app
+  reads from that, not from cookies directly.
+- **Database** (`prisma/schema.prisma`) — already targets Postgres
+  (`datasource db { provider = "postgresql" }`); point `DATABASE_URL` at
+  your Railway Postgres service's connection string to use it.
+- **MinIO** (`src/lib/minio.ts`) — real signed URLs and live bucket listings
+  once `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, and `MINIO_SECRET_KEY` are set
+  (`forcePathStyle` is required for MinIO — see the client config). Without
+  them, downloads fall back to `/placeholder-download` and `/uploads`'
+  bucket browser shows an empty result, so every page stays clickable in
+  dev. The QNAP reverse proxy's TLS chain is currently incomplete (confirmed
+  via `openssl s_client -showcerts` — it serves the leaf cert but not the
+  Let's Encrypt intermediate); `MINIO_TLS_INSECURE=true` is a stopgap for
+  that, not the real fix.
 - **Ingestion worker** — not part of this repo. `/uploads` reads whatever is
-  already in the `Episode` table; the worker that validates, anonymizes, and
-  writes those rows from NAS captures to MinIO is a separate service to
-  build next.
+  already in the `Episode` table and shows a live, unfiltered listing of
+  what's sitting in the bucket; the worker that reviews, validates,
+  anonymizes, and catalogs specific NAS captures into `Episode`/`Dataset`
+  rows is a separate service to build next.
 
 ## Design system
 
