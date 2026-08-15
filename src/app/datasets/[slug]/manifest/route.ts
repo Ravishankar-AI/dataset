@@ -19,6 +19,16 @@ export async function GET(
     return new Response("Not authorized", { status: 403 });
   }
 
+  // Multi-task datasets (e.g. Teleoperation Capture) have no single shared
+  // bucket prefix -- each task carries its own -- so there's no one manifest
+  // to generate here. An empty objectPrefix would otherwise list the whole
+  // bucket.
+  if (!dataset.objectPrefix) {
+    return new Response("This dataset has no single manifest — browse its tasks individually.", {
+      status: 400,
+    });
+  }
+
   const keys = await listObjectKeys(dataset.objectPrefix);
   const files = await Promise.all(
     keys.map(async (key) => ({ key, url: (await getSignedDownloadUrl(key)).url }))

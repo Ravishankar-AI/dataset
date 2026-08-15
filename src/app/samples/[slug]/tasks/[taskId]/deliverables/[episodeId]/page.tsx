@@ -26,13 +26,13 @@ export default async function DeliverableDetailPage({
   if (!dataset) notFound();
 
   const episode = await getEpisodeForTask(taskId, episodeId);
-  if (!episode || episode.episodeIndex == null) notFound();
+  if (!episode || episode.episodeIndex == null || !episode.task) notFound();
 
   const cameraPreviews = await Promise.all(
-    dataset.cameras.map(async (camera) => ({
+    episode.task!.cameras.map(async (camera) => ({
       camera,
       label: humanizeCameraName(camera),
-      ...(await getPublicSampleUrl(episodeVideoKey(dataset, episode.episodeIndex!, camera))),
+      ...(await getPublicSampleUrl(episodeVideoKey(episode.task!, episode.episodeIndex!, camera))),
     }))
   );
   const anyLive = cameraPreviews.some((p) => p.isLive);

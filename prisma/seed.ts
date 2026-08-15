@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/lib/password";
 import { episodeParquetKey } from "../src/lib/lerobot";
+import teleopTasks from "./data/teleop-tasks.json";
 
 const prisma = new PrismaClient();
 
@@ -165,6 +166,7 @@ async function main() {
 
   await prisma.entitlement.deleteMany();
   await prisma.episode.deleteMany();
+  await prisma.task.deleteMany();
   await prisma.dataset.deleteMany();
   await prisma.modality.deleteMany();
   await prisma.user.deleteMany();
@@ -208,8 +210,8 @@ async function main() {
 
   // Real capture from the teleoperation bucket (LeRobot layout: data/meta/videos
   // under chunk-000, 102 episodes, 3 wrist/overhead cameras) — confirmed via a
-  // live bucket listing. Everything else in that bucket is unreviewed raw
-  // capture staging (duplicates, typos, test uploads), not fit for the catalog.
+  // live bucket listing. The rest of that bucket's raw capture folders are
+  // seeded further down as the "Teleoperation Capture" multi-task dataset.
   const clutterSort = await prisma.dataset.create({
     data: {
       slug: "clutter-sort",
@@ -240,6 +242,9 @@ async function main() {
       datasetId: clutterSort.id,
       taskIndex: 0,
       title: "Picking a specific item from a clutter",
+      objectPrefix: clutterSort.objectPrefix,
+      chunk: clutterSort.chunk,
+      cameras: clutterSort.cameras,
     },
   });
 
@@ -259,6 +264,72 @@ async function main() {
         status: "cataloged",
       },
     });
+  }
+
+  // The other ~497 raw capture folders in the bucket -- imported as-is
+  // (duplicates, typos, test uploads and all) as one task per folder under
+  // a single umbrella dataset. Each folder is its own LeRobot capture with
+  // its own object prefix and camera set, hence objectPrefix/chunk/cameras
+  // living on Task rather than Dataset here. Per-episode duration/size are
+  // folder-level averages (total_frames/fps/total_episodes,
+  // total_bytes/total_episodes) rather than exact per-episode data, capped
+  // at 10 sample deliverables per task -- real episode files exist at every
+  // sampled index, just with an averaged (not exact) duration/size shown.
+  const teleopTotalBytes = teleopTasks.reduce((sum, t) => sum + t.totalBytes, 0);
+
+  const teleopCapture = await prisma.dataset.upsert({
+    where: { slug: "teleoperation-capture" },
+    update: {},
+    create: {
+      slug: "teleoperation-capture",
+      title: "Teleoperation Capture",
+      description:
+        "Raw teleoperation capture sessions from the bucket's staging folders, one task per capture folder. Imported as-is, duplicates included.",
+      modalityId: modalities.get("teleop")!,
+      accessTier: "sample",
+      status: "published",
+      version: "v1",
+      sizeBytes: BigInt(teleopTotalBytes),
+      // Not meaningful at the dataset level here -- every task has its own
+      // objectPrefix/chunk/cameras (see Task.objectPrefix docs).
+      objectPrefix: "",
+      fps: 30,
+      robotType: "Trossen Robotics Mobile AI",
+      cameraModel: "Intel RealSense D405",
+    },
+  });
+
+  const teleopNow = new Date();
+  for (const t of teleopTasks) {
+    const task = await prisma.task.upsert({
+      where: { datasetId_taskIndex: { datasetId: teleopCapture.id, taskIndex: t.taskIndex } },
+      update: {},
+      create: {
+        datasetId: teleopCapture.id,
+        taskIndex: t.taskIndex,
+        title: t.title,
+        objectPrefix: t.objectPrefix,
+        chunk: t.chunk,
+        cameras: t.cameras,
+      },
+    });
+
+    for (let episodeIndex = 0; episodeIndex < t.sampleCount; episodeIndex++) {
+      await prisma.episode.upsert({
+        where: { taskId_episodeIndex: { taskId: task.id, episodeIndex } },
+        update: {},
+        create: {
+          datasetId: teleopCapture.id,
+          taskId: task.id,
+          episodeIndex,
+          capturedAt: new Date(teleopNow.getTime() - (t.taskIndex * 10 + episodeIndex) * 3600_000),
+          durationSeconds: t.avgDurationSeconds,
+          sizeBytes: BigInt(t.avgSizeBytes),
+          objectKey: episodeParquetKey(task, episodeIndex),
+          status: "cataloged",
+        },
+      });
+    }
   }
 
   const acmeDataset = await prisma.dataset.create({
