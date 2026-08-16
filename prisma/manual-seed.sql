@@ -716,6 +716,11 @@ insert into "Task" (id, "datasetId", "taskIndex", title, "objectPrefix", chunk, 
   ('task_teleop_496', 'ds_teleop_capture', 496, 'Arrange the blocks as per height, Objects=blocks, env= Table', '~/task_49_sort_blocks_by_heigt_1t/', 'chunk-000', ARRAY['observation.images.cam_high','observation.images.cam_left_wrist','observation.images.cam_right_wrist'])
 on conflict ("datasetId", "taskIndex") do nothing;
 
+-- Backfills cameraCount on every Task row (covers ones inserted above in
+-- this same run, plus any seeded before this column existed) -- on
+-- conflict do nothing above wouldn't retroactively fix a pre-existing row.
+update "Task" set "cameraCount" = coalesce(array_length(cameras, 1), 0);
+
 insert into "Episode" (id, "datasetId", "taskId", "episodeIndex", "capturedAt", "durationSeconds", "sizeBytes", "objectKey", status, "rejectionReason") values
   ('ep_teleop_0_0', 'ds_teleop_capture', 'task_teleop_0', 0, now() - interval '0 hours', 39, 29214545, 'Output/Task104_Classification_of_Fruits_and_Vegetables/data/chunk-000/episode_000000.parquet', 'cataloged', null),
   ('ep_teleop_0_1', 'ds_teleop_capture', 'task_teleop_0', 1, now() - interval '1 hours', 39, 29214545, 'Output/Task104_Classification_of_Fruits_and_Vegetables/data/chunk-000/episode_000001.parquet', 'cataloged', null),

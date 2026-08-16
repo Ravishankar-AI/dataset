@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import type { Session } from "./auth";
 
@@ -126,6 +127,70 @@ export async function getEpisodeForTask(taskId: string, episodeId: string) {
     where: { id: episodeId, taskId },
     include: { task: true },
   });
+}
+
+export type DeliverableFilters = {
+  search?: string;
+  durationMin?: number;
+  durationMax?: number;
+  cameraCounts?: number[];
+  page?: number;
+  pageSize?: number;
+};
+
+// Flat, filterable view across every task's deliverables in a dataset --
+// powers the /samples/[slug] browse page. Filters translate to plain
+// Prisma where-clauses (camera count via Task.cameraCount, see schema.prisma)
+// rather than shipping the whole dataset to the client for filtering there.
+export async function listDeliverablesForDataset(datasetId: string, filters: DeliverableFilters = {}) {
+  const { search, durationMin, durationMax, cameraCounts, page = 1, pageSize = 24 } = filters;
+
+  const taskFilter: Prisma.TaskWhereInput = {};
+  if (search) taskFilter.title = { contains: search, mode: "insensitive" };
+  if (cameraCounts && cameraCounts.length > 0) taskFilter.cameraCount = { in: cameraCounts };
+
+  const where: Prisma.EpisodeWhereInput = {
+    datasetId,
+    taskId: { not: null },
+    ...(Object.keys(taskFilter).length > 0 ? { task: taskFilter } : {}),
+    ...(durationMin != null || durationMax != null
+      ? {
+          durationSeconds: {
+            ...(durationMin != null ? { gte: durationMin } : {}),
+            ...(durationMax != null ? { lte: durationMax } : {}),
+          },
+        }
+      : {}),
+  };
+
+  const [total, episodes] = await Promise.all([
+    prisma.episode.count({ where }),
+    prisma.episode.findMany({
+      where,
+      include: { task: true },
+      orderBy: [{ task: { taskIndex: "asc" } }, { episodeIndex: "asc" }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ]);
+
+  return { episodes, total, page, pageSize };
+}
+
+// Real episode counts per camera-count bucket, for the filter checkboxes'
+// "x123" counts -- always over the whole dataset, not the current
+// filtered/paginated view.
+export async function getCameraCountBreakdown(datasetId: string) {
+  const rows = await prisma.episode.findMany({
+    where: { datasetId, taskId: { not: null } },
+    select: { task: { select: { cameraCount: true } } },
+  });
+  const counts = new Map<number, number>();
+  for (const r of rows) {
+    const c = r.task?.cameraCount ?? 0;
+    counts.set(c, (counts.get(c) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => a[0] - b[0]).map(([cameraCount, count]) => ({ cameraCount, count }));
 }
 
 export async function listIngestionQueue() {

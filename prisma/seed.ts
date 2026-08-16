@@ -247,6 +247,7 @@ async function main() {
       objectPrefix: clutterSort.objectPrefix,
       chunk: clutterSort.chunk,
       cameras: clutterSort.cameras,
+      cameraCount: clutterSort.cameras.length,
     },
   });
 
@@ -316,6 +317,7 @@ async function main() {
         objectPrefix: t.objectPrefix,
         chunk: t.chunk,
         cameras: t.cameras,
+        cameraCount: t.cameras.length,
       },
     });
 
