@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/lib/password";
 import { episodeParquetKey } from "../src/lib/lerobot";
 import teleopTasks from "./data/teleop-tasks.json";
+import teleopEpisodeDurations from "./data/teleop-episode-durations.json";
 
 const prisma = new PrismaClient();
 
@@ -273,11 +274,15 @@ async function main() {
   // (duplicates, typos, test uploads and all) as one task per folder under
   // a single umbrella dataset. Each folder is its own LeRobot capture with
   // its own object prefix and camera set, hence objectPrefix/chunk/cameras
-  // living on Task rather than Dataset here. Per-episode duration/size are
-  // folder-level averages (total_frames/fps/total_episodes,
-  // total_bytes/total_episodes) rather than exact per-episode data, capped
+  // living on Task rather than Dataset here. Per-episode size is a
+  // folder-level average (total_bytes/total_episodes) -- exact per-episode
+  // sizes were never fetched. Duration is the real per-episode value read
+  // from each episode's own parquet row count (see
+  // teleop-episode-durations.json / fetch-episode-durations.py), falling
+  // back to the folder-level average for the handful of episodes that
+  // 404'd on their parquet key (a source data gap, e.g. task 384). Capped
   // at 10 sample deliverables per task -- real episode files exist at every
-  // sampled index, just with an averaged (not exact) duration/size shown.
+  // sampled index.
   const teleopTotalBytes = teleopTasks.reduce((sum, t) => sum + t.totalBytes, 0);
 
   const teleopTitle = "Bimanual Robot Manipulation Dataset";
@@ -322,15 +327,21 @@ async function main() {
     });
 
     for (let episodeIndex = 0; episodeIndex < t.sampleCount; episodeIndex++) {
+      const durationSeconds =
+        (teleopEpisodeDurations as Record<string, number>)[`${t.taskIndex}_${episodeIndex}`] ??
+        t.avgDurationSeconds;
       await prisma.episode.upsert({
         where: { taskId_episodeIndex: { taskId: task.id, episodeIndex } },
-        update: {},
+        // Retroactively fixes durationSeconds on a row seeded before real
+        // per-episode durations existed -- everything else on an existing
+        // row is left alone.
+        update: { durationSeconds },
         create: {
           datasetId: teleopCapture.id,
           taskId: task.id,
           episodeIndex,
           capturedAt: new Date(teleopNow.getTime() - (t.taskIndex * 10 + episodeIndex) * 3600_000),
-          durationSeconds: t.avgDurationSeconds,
+          durationSeconds,
           sizeBytes: BigInt(t.avgSizeBytes),
           objectKey: episodeParquetKey(task, episodeIndex),
           status: "cataloged",
