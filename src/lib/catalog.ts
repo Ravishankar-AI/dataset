@@ -37,11 +37,14 @@ export async function listCustomerDatasets(organizationId: string) {
 
 // Every published customer-tier dataset, each flagged with whether this org
 // already holds an Entitlement -- powers /datasets showing both "yours" and
-// "available to purchase" datasets in one list.
-export async function listPurchasableDatasets(organizationId: string) {
+// "available to purchase" datasets in one list. organizationId is nullable
+// because self-registered customers (see src/app/register/actions.ts) don't
+// get one -- Prisma rejects filtering a required FK column on a literal
+// null, so a value that can never match a real cuid stands in for "no org".
+export async function listPurchasableDatasets(organizationId: string | null) {
   const datasets = await prisma.dataset.findMany({
     where: { accessTier: "customer", status: "published" },
-    include: { modality: true, entitlements: { where: { organizationId } } },
+    include: { modality: true, entitlements: { where: { organizationId: organizationId ?? "__no_org__" } } },
     orderBy: { updatedAt: "desc" },
   });
   return datasets.map((d) => ({ ...d, entitled: d.entitlements.length > 0 }));

@@ -29,7 +29,7 @@ export default async function DatasetsPage({
           where: { accessTier: "customer", status: "published" },
           include: { modality: true, entitlements: { include: { organization: true } } },
         })
-      : listPurchasableDatasets(session.organizationId!),
+      : listPurchasableDatasets(session.organizationId),
     isAdmin ? listPurchaseRequests() : Promise.resolve(null),
   ]);
 
