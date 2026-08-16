@@ -49,7 +49,7 @@ on conflict (slug) do nothing;
 update "Dataset" set "robotType" = 'Trossen Robotics Mobile AI', "cameraModel" = 'Intel RealSense D405'
 where slug = 'clutter-sort';
 
--- Unpublishes Clutter Sort now that Teleoperation Capture also covers this
+-- Unpublishes Clutter Sort now that Bimanual Robot Manipulation Dataset also covers this
 -- same folder as one of its 497 tasks -- avoids showing it twice on Samples.
 update "Dataset" set status = 'draft' where slug = 'clutter-sort';
 
@@ -183,8 +183,9 @@ insert into "Episode" (id, "datasetId", "capturedAt", "durationSeconds", "sizeBy
 on conflict (id) do nothing;
 -- Bulk import of the ~497 remaining raw teleoperation capture folders,
 -- one Task per folder, imported as-is (duplicates, typos, test uploads
--- included) under a single "Teleoperation Capture" dataset. Generated
--- from prisma/data/teleop-tasks.json (same source prisma/seed.ts reads) --
+-- included) under a single "Bimanual Robot Manipulation Dataset" dataset
+-- (slug stays teleoperation-capture). Generated from
+-- prisma/data/teleop-tasks.json (same source prisma/seed.ts reads) --
 -- see that file's comment for how per-episode duration/size are derived.
 --
 -- Run this AFTER migrations have deployed (Task.objectPrefix/chunk/cameras
@@ -192,8 +193,12 @@ on conflict (id) do nothing;
 -- do nothing".
 
 insert into "Dataset" (id, slug, title, description, "modalityId", "accessTier", status, version, "sizeBytes", "objectPrefix", fps, "robotType", "cameraModel", "updatedAt") values
-  ('ds_teleop_capture', 'teleoperation-capture', 'Teleoperation Capture', 'Raw teleoperation capture sessions from the bucket''s staging folders, one task per capture folder. Imported as-is, duplicates included.', 'mod_teleop', 'sample', 'published', 'v1', 4556528698360, '', 30, 'Trossen Robotics Mobile AI', 'Intel RealSense D405', now())
+  ('ds_teleop_capture', 'teleoperation-capture', 'Bimanual Robot Manipulation Dataset', 'Raw teleoperation capture sessions from the bucket''s staging folders, one task per capture folder. Imported as-is, duplicates included.', 'mod_teleop', 'sample', 'published', 'v1', 4556528698360, '', 30, 'Trossen Robotics Mobile AI', 'Intel RealSense D405', now())
 on conflict (slug) do nothing;
+
+-- Renames a row that may have already been seeded under the old title --
+-- on conflict do nothing above won't retroactively rename an existing row.
+update "Dataset" set title = 'Bimanual Robot Manipulation Dataset' where slug = 'teleoperation-capture';
 
 insert into "Task" (id, "datasetId", "taskIndex", title, "objectPrefix", chunk, cameras) values
   ('task_teleop_0', 'ds_teleop_capture', 0, 'Classifying Fruits and Vegetables, Objects:Plates, Fruits, Bowl, Vegetables, Environment = table', 'Output/Task104_Classification_of_Fruits_and_Vegetables/', 'chunk-000', ARRAY['observation.images.cam_high','observation.images.cam_left_wrist','observation.images.cam_right_wrist']),

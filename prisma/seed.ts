@@ -211,7 +211,7 @@ async function main() {
   // Real capture from the teleoperation bucket (LeRobot layout: data/meta/videos
   // under chunk-000, 102 episodes, 3 wrist/overhead cameras) — confirmed via a
   // live bucket listing. The rest of that bucket's raw capture folders are
-  // seeded further down as the "Teleoperation Capture" multi-task dataset,
+  // seeded further down as the "Bimanual Robot Manipulation Dataset" multi-task dataset,
   // which also covers this same folder (as one of its 497 tasks) -- so this
   // standalone entry stays unpublished rather than showing twice on Samples.
   const clutterSort = await prisma.dataset.create({
@@ -279,14 +279,17 @@ async function main() {
   // sampled index, just with an averaged (not exact) duration/size shown.
   const teleopTotalBytes = teleopTasks.reduce((sum, t) => sum + t.totalBytes, 0);
 
+  const teleopTitle = "Bimanual Robot Manipulation Dataset";
+  const teleopDescription =
+    "Raw teleoperation capture sessions from the bucket's staging folders, one task per capture folder. Imported as-is, duplicates included.";
+
   const teleopCapture = await prisma.dataset.upsert({
     where: { slug: "teleoperation-capture" },
-    update: {},
+    update: { title: teleopTitle, description: teleopDescription },
     create: {
       slug: "teleoperation-capture",
-      title: "Teleoperation Capture",
-      description:
-        "Raw teleoperation capture sessions from the bucket's staging folders, one task per capture folder. Imported as-is, duplicates included.",
+      title: teleopTitle,
+      description: teleopDescription,
       modalityId: modalities.get("teleop")!,
       accessTier: "sample",
       status: "published",
