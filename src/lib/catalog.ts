@@ -34,6 +34,49 @@ export async function listCustomerDatasets(organizationId: string) {
   });
 }
 
+// Every published customer-tier dataset, each flagged with whether this org
+// already holds an Entitlement -- powers /datasets showing both "yours" and
+// "available to purchase" datasets in one list.
+export async function listPurchasableDatasets(organizationId: string) {
+  const datasets = await prisma.dataset.findMany({
+    where: { accessTier: "customer", status: "published" },
+    include: { modality: true, entitlements: { where: { organizationId } } },
+    orderBy: { updatedAt: "desc" },
+  });
+  return datasets.map((d) => ({ ...d, entitled: d.entitlements.length > 0 }));
+}
+
+export async function createPurchaseRequest(data: {
+  datasetId: string;
+  organizationId: string;
+  requestedByName: string;
+  requestedByEmail: string;
+}) {
+  return prisma.purchaseRequest.create({ data });
+}
+
+export async function listPurchaseRequests() {
+  return prisma.purchaseRequest.findMany({
+    include: { dataset: true, organization: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createIntakeRequest(data: {
+  kind: string;
+  contactName: string;
+  contactEmail: string;
+  organizationName?: string;
+  description: string;
+  transferNotes?: string;
+}) {
+  return prisma.intakeRequest.create({ data });
+}
+
+export async function listIntakeRequests() {
+  return prisma.intakeRequest.findMany({ orderBy: { createdAt: "desc" } });
+}
+
 export async function getDatasetForViewer(slug: string, session: Session | null) {
   const dataset = await prisma.dataset.findUnique({
     where: { slug },

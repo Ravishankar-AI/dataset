@@ -348,6 +348,7 @@ async function main() {
       version: "v2",
       sizeBytes: BigInt(1_400_000_000_000),
       objectPrefix: "datasets/egograsp-acme-v2/",
+      priceLabel: "$18,000",
     },
   });
 

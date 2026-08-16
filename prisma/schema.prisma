@@ -23,12 +23,13 @@ datasource db {
 }
 
 model Organization {
-  id           String         @id @default(cuid())
-  name         String
-  slug         String         @unique
-  createdAt    DateTime       @default(now())
-  users        User[]
-  entitlements Entitlement[]
+  id               String            @id @default(cuid())
+  name             String
+  slug             String            @unique
+  createdAt        DateTime          @default(now())
+  users            User[]
+  entitlements     Entitlement[]
+  purchaseRequests PurchaseRequest[]
 }
 
 model User {
@@ -76,11 +77,17 @@ model Dataset {
   // from meta/info.json (which only records the internal robot_type key).
   robotType    String?
   cameraModel  String?
+  // Free-form display string (e.g. "$8,500", "Contact for pricing") --
+  // shown on /datasets for customer-tier datasets. No payment processor is
+  // wired up yet: "Request Purchase" creates a PurchaseRequest for manual
+  // follow-up, the same way Entitlement grants are handled today.
+  priceLabel   String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   tasks        Task[]
   episodes     Episode[]
   entitlements Entitlement[]
+  purchaseRequests PurchaseRequest[]
 }
 
 // A LeRobot "task" (from meta/tasks.jsonl) -- a distinct instruction a
@@ -136,4 +143,39 @@ model Entitlement {
   grantedAt      DateTime     @default(now())
 
   @@unique([organizationId, datasetId])
+}
+
+// Submitted from /datasets when a customer clicks "Request Purchase" on a
+// dataset their org isn't entitled to yet. No payment processor is wired up
+// -- staff review these and manually create the matching Entitlement, same
+// as every entitlement granted so far.
+model PurchaseRequest {
+  id               String       @id @default(cuid())
+  dataset          Dataset      @relation(fields: [datasetId], references: [id])
+  datasetId        String
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  organizationId   String
+  requestedByName  String
+  requestedByEmail String
+  // "pending" | "approved" | "declined"
+  status           String       @default("pending")
+  createdAt        DateTime     @default(now())
+}
+
+// Submitted from /uploads -- someone wanting to sell their capture data to
+// Objectways, or have an evaluation run against our platform. Not tied to
+// an existing account/org since the submitter may not be a customer yet;
+// staff follow up by email to arrange the actual file transfer.
+model IntakeRequest {
+  id               String   @id @default(cuid())
+  // "sell_data" | "request_evaluation"
+  kind             String
+  contactName      String
+  contactEmail     String
+  organizationName String?
+  description      String
+  transferNotes    String?
+  // "new" | "in_review" | "closed"
+  status           String   @default("new")
+  createdAt        DateTime @default(now())
 }
