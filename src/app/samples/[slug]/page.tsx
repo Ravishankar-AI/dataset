@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { listDeliverablesForDataset, getCameraCountBreakdown } from "@/lib/catalog";
+import { listDeliverablesForDataset, getCameraCountBreakdown, listDistinctTaskTitles } from "@/lib/catalog";
 import { formatBytes, formatDuration } from "@/lib/format";
 import { episodeThumbnailKey } from "@/lib/lerobot";
 import { getPublicSampleUrl } from "@/lib/minio";
@@ -65,7 +65,7 @@ export default async function SampleDetailPage({
   const view = sp.view === "rows" ? "rows" : "cards";
   const page = Math.max(1, Number(sp.page) || 1);
 
-  const [{ episodes, total }, cameraBreakdown] = await Promise.all([
+  const [{ episodes, total }, cameraBreakdown, taskTitles] = await Promise.all([
     listDeliverablesForDataset(dataset.id, {
       search,
       durationMin: Number.isFinite(durationMin) ? durationMin : undefined,
@@ -75,6 +75,7 @@ export default async function SampleDetailPage({
       pageSize: PAGE_SIZE,
     }),
     getCameraCountBreakdown(dataset.id),
+    listDistinctTaskTitles(dataset.id),
   ]);
 
   const isFiltered = Boolean(search || sp.durationMin || sp.durationMax || selectedCams.length > 0);
@@ -133,10 +134,16 @@ export default async function SampleDetailPage({
               <input
                 type="text"
                 name="q"
+                list="task-names"
                 defaultValue={sp.q ?? ""}
                 placeholder="e.g. folding, cutlery&hellip;"
                 className="border border-line bg-card px-3 py-2 text-[0.85rem]"
               />
+              <datalist id="task-names">
+                {taskTitles.map((title) => (
+                  <option key={title} value={title} />
+                ))}
+              </datalist>
             </label>
 
             <div className="flex flex-col gap-1.5">

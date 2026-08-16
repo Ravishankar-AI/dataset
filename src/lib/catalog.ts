@@ -114,6 +114,19 @@ export async function listTasksForDataset(datasetId: string) {
   });
 }
 
+// Real task titles for a dataset, deduplicated -- powers the task-name
+// filter's <datalist> autocomplete on /samples/[slug] rather than leaving
+// it a blind free-text field.
+export async function listDistinctTaskTitles(datasetId: string) {
+  const tasks = await prisma.task.findMany({
+    where: { datasetId },
+    select: { title: true },
+    distinct: ["title"],
+    orderBy: { title: "asc" },
+  });
+  return tasks.map((t) => t.title);
+}
+
 export async function getTaskForDataset(datasetId: string, taskId: string) {
   return prisma.task.findFirst({ where: { id: taskId, datasetId } });
 }
