@@ -40,7 +40,7 @@ on conflict (email) do nothing;
 -- cameras). Everything else in the bucket is unreviewed raw capture
 -- staging, not fit for the catalog.
 insert into "Dataset" (id, slug, title, description, "modalityId", "accessTier", status, version, "sizeBytes", "objectPrefix", chunk, cameras, fps, "robotType", "cameraModel", "updatedAt") values
-  ('ds_clutter_sort', 'clutter-sort', 'Clutter Sort', 'Bimanual clutter-sorting manipulation episodes captured with a 3-camera rig (overhead plus both wrists).', 'mod_teleop', 'sample', 'published', 'v1', 580931773, 'Clutter_sort/', 'chunk-000', ARRAY['observation.images.cam_high','observation.images.cam_left_wrist','observation.images.cam_right_wrist'], 30, 'Trossen Robotics Mobile AI', 'Intel RealSense D405', now())
+  ('ds_clutter_sort', 'clutter-sort', 'Clutter Sort', 'Bimanual clutter-sorting manipulation episodes captured with a 3-camera rig (overhead plus both wrists).', 'mod_teleop', 'sample', 'draft', 'v1', 580931773, 'Clutter_sort/', 'chunk-000', ARRAY['observation.images.cam_high','observation.images.cam_left_wrist','observation.images.cam_right_wrist'], 30, 'Trossen Robotics Mobile AI', 'Intel RealSense D405', now())
 on conflict (slug) do nothing;
 
 -- Corrects robotType/cameraModel on a row that was already seeded before
@@ -48,6 +48,10 @@ on conflict (slug) do nothing;
 -- fix an existing row, so this keeps re-running the file idempotent either way.
 update "Dataset" set "robotType" = 'Trossen Robotics Mobile AI', "cameraModel" = 'Intel RealSense D405'
 where slug = 'clutter-sort';
+
+-- Unpublishes Clutter Sort now that Teleoperation Capture also covers this
+-- same folder as one of its 497 tasks -- avoids showing it twice on Samples.
+update "Dataset" set status = 'draft' where slug = 'clutter-sort';
 
 -- From Clutter_sort/meta/tasks.jsonl -- this dataset has exactly one task.
 insert into "Task" (id, "datasetId", "taskIndex", title, "objectPrefix", chunk, cameras) values

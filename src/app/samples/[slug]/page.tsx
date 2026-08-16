@@ -57,7 +57,7 @@ export default async function SampleDetailPage({
       </p>
 
       {tasks.length > 0 ? (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {tasks.map((t) => (
             <Link
               key={t.id}
