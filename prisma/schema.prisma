@@ -132,6 +132,12 @@ model Episode {
   status          String    @default("queued")
   rejectionReason String?
   createdAt       DateTime  @default(now())
+  // True once a first-frame JPEG exists at episodeThumbnailKey() (see
+  // src/lib/lerobot.ts) -- generated out-of-band (ffmpeg needs a video
+  // file, not something the app server does at request time) and flipped
+  // on here once the upload is confirmed. False means render the
+  // fallback camera icon instead of a broken <img>.
+  hasThumbnail    Boolean   @default(false)
 
   @@unique([taskId, episodeIndex])
 }

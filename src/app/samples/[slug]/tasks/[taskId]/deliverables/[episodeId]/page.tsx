@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { getPublicSampleUrl } from "@/lib/minio";
 import { getEpisodeForTask } from "@/lib/catalog";
-import { episodeVideoKey, humanizeCameraName } from "@/lib/lerobot";
+import { episodeVideoKey, episodeThumbnailKey, humanizeCameraName } from "@/lib/lerobot";
 import { formatDuration } from "@/lib/format";
 
 export default async function DeliverableDetailPage({
@@ -28,10 +28,17 @@ export default async function DeliverableDetailPage({
   const episode = await getEpisodeForTask(taskId, episodeId);
   if (!episode || episode.episodeIndex == null || !episode.task) notFound();
 
+  // The thumbnail only ever covers the primary (first) camera -- see
+  // episodeThumbnailKey's doc comment -- so only that preview gets a poster.
+  const posterUrl = episode.hasThumbnail
+    ? (await getPublicSampleUrl(episodeThumbnailKey(episode.task!, episode.episodeIndex!))).url
+    : undefined;
+
   const cameraPreviews = await Promise.all(
-    episode.task!.cameras.map(async (camera) => ({
+    episode.task!.cameras.map(async (camera, i) => ({
       camera,
       label: humanizeCameraName(camera),
+      poster: i === 0 ? posterUrl : undefined,
       ...(await getPublicSampleUrl(episodeVideoKey(episode.task!, episode.episodeIndex!, camera))),
     }))
   );
@@ -76,6 +83,7 @@ export default async function DeliverableDetailPage({
             <div key={p.camera}>
               <video
                 src={p.url}
+                poster={p.poster}
                 controls
                 muted
                 className="aspect-video w-full rounded border border-line bg-line-strong"
