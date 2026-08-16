@@ -60,10 +60,14 @@ on conflict ("datasetId", "taskIndex") do nothing;
 -- (A pre-existing row from before objectPrefix/chunk/cameras moved onto Task
 -- is already backfilled by migration 20260815140000_task_object_layout.)
 
-insert into "Dataset" (id, slug, title, description, "modalityId", "accessTier", status, version, "sizeBytes", "objectPrefix", "updatedAt") values
-  ('ds_egograsp_acme_v2', 'egograsp-acme-v2', 'EgoGrasp — Acme Custom Capture', 'Custom EgoGrasp campaign scoped to Acme''s warehouse SKUs, 40 hours across 3 sites.', 'mod_egocentric', 'customer', 'published', 'v2', 1400000000000, 'datasets/egograsp-acme-v2/', now()),
-  ('ds_egonav_indoor_draft', 'egonav-indoor-draft', 'EgoNav — Indoor Navigation (in review)', 'GPS-denied indoor navigation traces through malls, offices, and staircases.', 'mod_exocentric', 'customer', 'draft', 'v1', 0, 'datasets/egonav-indoor-draft/', now())
+insert into "Dataset" (id, slug, title, description, "modalityId", "accessTier", status, version, "sizeBytes", "objectPrefix", "priceLabel", "updatedAt") values
+  ('ds_egograsp_acme_v2', 'egograsp-acme-v2', 'EgoGrasp — Acme Custom Capture', 'Custom EgoGrasp campaign scoped to Acme''s warehouse SKUs, 40 hours across 3 sites.', 'mod_egocentric', 'customer', 'published', 'v2', 1400000000000, 'datasets/egograsp-acme-v2/', '$18,000', now()),
+  ('ds_egonav_indoor_draft', 'egonav-indoor-draft', 'EgoNav — Indoor Navigation (in review)', 'GPS-denied indoor navigation traces through malls, offices, and staircases.', 'mod_exocentric', 'customer', 'draft', 'v1', 0, 'datasets/egonav-indoor-draft/', null, now())
 on conflict (slug) do nothing;
+
+-- Backfills a row seeded before priceLabel existed -- on conflict do nothing
+-- above won't retroactively add it to an existing row.
+update "Dataset" set "priceLabel" = '$18,000' where slug = 'egograsp-acme-v2' and "priceLabel" is null;
 
 insert into "Entitlement" (id, "organizationId", "datasetId") values
   ('ent_acme_egograsp_v2', 'org_acme_robotics', 'ds_egograsp_acme_v2')

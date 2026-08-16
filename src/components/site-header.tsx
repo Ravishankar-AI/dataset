@@ -25,6 +25,11 @@ export function SiteHeader({ session }: { session: Session | null }) {
               {link.label}
             </Link>
           ))}
+          {(session?.role === "contributor" || session?.role === "admin") && (
+            <Link href="/admin/ingestion" className="hover:text-ink">
+              Ingestion
+            </Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-4">
