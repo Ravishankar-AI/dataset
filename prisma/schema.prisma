@@ -106,6 +106,9 @@ model Task {
   objectPrefix String
   chunk        String    @default("chunk-000")
   cameras      String[]  @default([])
+  // Denormalized cameras.length -- lets the deliverable browser filter by
+  // camera count with a plain Prisma where-clause instead of a raw query.
+  cameraCount  Int       @default(0)
   episodes   Episode[]
 
   @@unique([datasetId, taskIndex])
