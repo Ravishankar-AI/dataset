@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { getTaskForDataset, listEpisodesForTask } from "@/lib/catalog";
 import { formatDuration } from "@/lib/format";
+import { episodeThumbnailKey } from "@/lib/lerobot";
+import { getPublicSampleUrl } from "@/lib/minio";
 
 export default async function TaskDeliverablesPage({
   params,
@@ -24,6 +26,19 @@ export default async function TaskDeliverablesPage({
   if (!task) notFound();
 
   const episodes = await listEpisodesForTask(task.id);
+
+  // Signing is pure local HMAC computation (no network call), so resolving
+  // a URL per thumbnail here is cheap even for a task's full episode list
+  // (capped at 10 sample deliverables).
+  const thumbnailUrls = new Map<string, string>();
+  await Promise.all(
+    episodes
+      .filter((e) => e.hasThumbnail)
+      .map(async (e) => {
+        const { url } = await getPublicSampleUrl(episodeThumbnailKey(task, e.episodeIndex ?? 0));
+        thumbnailUrls.set(e.id, url);
+      })
+  );
 
   return (
     <div className="mx-auto max-w-[1230px] px-8 py-16">
@@ -46,8 +61,25 @@ export default async function TaskDeliverablesPage({
               href={`/samples/${slug}/tasks/${taskId}/deliverables/${e.id}`}
               className="block border border-line bg-card p-4 transition-colors hover:border-line-strong"
             >
+              <div className="mb-3 flex aspect-video items-center justify-center overflow-hidden rounded border border-line bg-paper-alt">
+                {thumbnailUrls.has(e.id) ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- signed MinIO URL, not a local/optimizable asset
+                  <img src={thumbnailUrls.get(e.id)} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.6}
+                    className="h-7 w-7 text-ink-faint opacity-60"
+                  >
+                    <rect x="2.5" y="6" width="14" height="12" rx="2" />
+                    <path d="M16.5 10l5-3v10l-5-3z" />
+                  </svg>
+                )}
+              </div>
               <div className="mb-2 font-mono text-[0.68rem] uppercase tracking-wider text-signal-ink">
-                Episode {e.episodeIndex}
+                Episode {String(e.episodeIndex ?? 0).padStart(3, "0")}
               </div>
               <div className="mb-2.5 font-mono text-[0.82rem] tabular-nums">
                 {formatDuration(e.durationSeconds)}
