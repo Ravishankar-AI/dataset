@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { SESSION_COOKIE } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
+import { sendEmail } from "@/lib/email";
+
+const SALES_EMAIL = process.env.SALES_NOTIFICATION_EMAIL || "sales@objectways.com";
 
 export async function register(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -28,6 +31,19 @@ export async function register(formData: FormData) {
   await prisma.user.create({
     data: { name, email, passwordHash: hashPassword(password), role: "customer" },
   });
+
+  try {
+    await sendEmail({
+      to: SALES_EMAIL,
+      replyTo: email,
+      subject: `[Registration] New signup: ${name}`,
+      text: [`Name: ${name}`, `Email: ${email}`, "Role: customer"].join("\n"),
+    });
+  } catch (e) {
+    // Never block registration on the email step -- the User row is the
+    // real record either way.
+    console.error("[register] failed to send sales notification email:", e);
+  }
 
   const store = await cookies();
   store.set(SESSION_COOKIE, email, {
