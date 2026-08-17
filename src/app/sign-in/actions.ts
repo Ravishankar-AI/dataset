@@ -3,8 +3,9 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { SESSION_COOKIE } from "@/lib/auth";
+import { PENDING_2FA_COOKIE, SESSION_COOKIE } from "@/lib/auth";
 import { verifyPassword } from "@/lib/password";
+import { sendLoginCode } from "@/lib/twofactor";
 
 export async function signIn(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -16,14 +17,17 @@ export async function signIn(formData: FormData) {
     redirect(`/sign-in?next=${encodeURIComponent(next)}&error=invalid`);
   }
 
+  await sendLoginCode(user.id, user.email);
+
   const store = await cookies();
-  store.set(SESSION_COOKIE, email, {
+  store.set(PENDING_2FA_COOKIE, user.id, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
+    maxAge: 60 * 10,
   });
 
-  redirect(next || "/samples");
+  redirect(`/sign-in/verify?next=${encodeURIComponent(next)}`);
 }
 
 export async function signOut(formData: FormData) {

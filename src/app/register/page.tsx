@@ -6,6 +6,7 @@ export const metadata = { title: "Register — Objectways Data" };
 const ERROR_COPY: Record<string, string> = {
   invalid: "Name, email, and a password of at least 8 characters are required.",
   taken: "An account with that email already exists.",
+  free_email: "Please register with your company email address, not a personal/free email provider.",
 };
 
 export default async function RegisterPage({
