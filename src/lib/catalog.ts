@@ -106,12 +106,39 @@ export async function getDatasetForViewer(slug: string, session: Session | null)
   return { dataset, allowed: false as const };
 }
 
-export async function listTasksForDataset(datasetId: string) {
-  return prisma.task.findMany({
-    where: { datasetId },
-    orderBy: { taskIndex: "asc" },
-    include: { _count: { select: { episodes: true } } },
-  });
+export type TaskFilters = {
+  search?: string;
+  cameraCounts?: number[];
+  page?: number;
+  pageSize?: number;
+};
+
+// Filterable, paginated task list for a dataset -- powers the /samples/[slug]
+// browse page (tasks first; episodes live one level down at
+// /samples/[slug]/tasks/[taskId]). Includes each task's first sample episode
+// so the task card can show a real thumbnail alongside the episode count.
+export async function listFilteredTasksForDataset(datasetId: string, filters: TaskFilters = {}) {
+  const { search, cameraCounts, page = 1, pageSize = 24 } = filters;
+
+  const where: Prisma.TaskWhereInput = { datasetId };
+  if (search) where.title = { contains: search, mode: "insensitive" };
+  if (cameraCounts && cameraCounts.length > 0) where.cameraCount = { in: cameraCounts };
+
+  const [total, tasks] = await Promise.all([
+    prisma.task.count({ where }),
+    prisma.task.findMany({
+      where,
+      orderBy: { taskIndex: "asc" },
+      include: {
+        _count: { select: { episodes: true } },
+        episodes: { where: { episodeIndex: 0 }, take: 1 },
+      },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ]);
+
+  return { tasks, total, page, pageSize };
 }
 
 // Real task titles for a dataset, deduplicated -- powers the task-name
@@ -145,68 +172,18 @@ export async function getEpisodeForTask(taskId: string, episodeId: string) {
   });
 }
 
-export type DeliverableFilters = {
-  search?: string;
-  durationMin?: number;
-  durationMax?: number;
-  cameraCounts?: number[];
-  page?: number;
-  pageSize?: number;
-};
-
-// Flat, filterable view across every task's deliverables in a dataset --
-// powers the /samples/[slug] browse page. Filters translate to plain
-// Prisma where-clauses (camera count via Task.cameraCount, see schema.prisma)
-// rather than shipping the whole dataset to the client for filtering there.
-export async function listDeliverablesForDataset(datasetId: string, filters: DeliverableFilters = {}) {
-  const { search, durationMin, durationMax, cameraCounts, page = 1, pageSize = 24 } = filters;
-
-  const taskFilter: Prisma.TaskWhereInput = {};
-  if (search) taskFilter.title = { contains: search, mode: "insensitive" };
-  if (cameraCounts && cameraCounts.length > 0) taskFilter.cameraCount = { in: cameraCounts };
-
-  const where: Prisma.EpisodeWhereInput = {
-    datasetId,
-    taskId: { not: null },
-    ...(Object.keys(taskFilter).length > 0 ? { task: taskFilter } : {}),
-    ...(durationMin != null || durationMax != null
-      ? {
-          durationSeconds: {
-            ...(durationMin != null ? { gte: durationMin } : {}),
-            ...(durationMax != null ? { lte: durationMax } : {}),
-          },
-        }
-      : {}),
-  };
-
-  const [total, episodes] = await Promise.all([
-    prisma.episode.count({ where }),
-    prisma.episode.findMany({
-      where,
-      include: { task: true },
-      orderBy: [{ task: { taskIndex: "asc" } }, { episodeIndex: "asc" }],
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-  ]);
-
-  return { episodes, total, page, pageSize };
-}
-
-// Real episode counts per camera-count bucket, for the filter checkboxes'
+// Real task counts per camera-count bucket, for the filter checkboxes'
 // "x123" counts -- always over the whole dataset, not the current
 // filtered/paginated view.
-export async function getCameraCountBreakdown(datasetId: string) {
-  const rows = await prisma.episode.findMany({
-    where: { datasetId, taskId: { not: null } },
-    select: { task: { select: { cameraCount: true } } },
+export async function getTaskCameraCountBreakdown(datasetId: string) {
+  const rows = await prisma.task.groupBy({
+    by: ["cameraCount"],
+    where: { datasetId },
+    _count: true,
   });
-  const counts = new Map<number, number>();
-  for (const r of rows) {
-    const c = r.task?.cameraCount ?? 0;
-    counts.set(c, (counts.get(c) ?? 0) + 1);
-  }
-  return [...counts.entries()].sort((a, b) => a[0] - b[0]).map(([cameraCount, count]) => ({ cameraCount, count }));
+  return rows
+    .map((r) => ({ cameraCount: r.cameraCount, count: r._count }))
+    .sort((a, b) => a.cameraCount - b.cameraCount);
 }
 
 export async function listIngestionQueue() {

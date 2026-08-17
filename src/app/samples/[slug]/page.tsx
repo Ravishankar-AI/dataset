@@ -2,8 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { listDeliverablesForDataset, getCameraCountBreakdown, listDistinctTaskTitles } from "@/lib/catalog";
-import { formatBytes, formatDuration } from "@/lib/format";
+import { listFilteredTasksForDataset, getTaskCameraCountBreakdown, listDistinctTaskTitles } from "@/lib/catalog";
+import { formatBytes } from "@/lib/format";
 import { episodeThumbnailKey } from "@/lib/lerobot";
 import { getPublicSampleUrl } from "@/lib/minio";
 
@@ -12,8 +12,6 @@ const CAMERA_BUCKETS = [1, 2, 3, 6];
 
 type SearchParams = {
   q?: string;
-  durationMin?: string;
-  durationMax?: string;
   cams?: string | string[];
   view?: string;
   page?: string;
@@ -23,8 +21,6 @@ function toHref(slug: string, params: SearchParams, overrides: Record<string, st
   const qs = new URLSearchParams();
   const cams = Array.isArray(params.cams) ? params.cams : params.cams ? [params.cams] : [];
   if (params.q) qs.set("q", params.q);
-  if (params.durationMin) qs.set("durationMin", params.durationMin);
-  if (params.durationMax) qs.set("durationMax", params.durationMax);
   cams.forEach((c) => qs.append("cams", c));
   if (params.view) qs.set("view", params.view);
   if (params.page) qs.set("page", params.page);
@@ -57,28 +53,24 @@ export default async function SampleDetailPage({
   if (!dataset) notFound();
 
   const search = sp.q?.trim() || undefined;
-  const durationMin = sp.durationMin ? Number(sp.durationMin) : undefined;
-  const durationMax = sp.durationMax ? Number(sp.durationMax) : undefined;
   const selectedCams = (Array.isArray(sp.cams) ? sp.cams : sp.cams ? [sp.cams] : [])
     .map(Number)
     .filter((n) => CAMERA_BUCKETS.includes(n));
   const view = sp.view === "rows" ? "rows" : "cards";
   const page = Math.max(1, Number(sp.page) || 1);
 
-  const [{ episodes, total }, cameraBreakdown, taskTitles] = await Promise.all([
-    listDeliverablesForDataset(dataset.id, {
+  const [{ tasks, total }, cameraBreakdown, taskTitles] = await Promise.all([
+    listFilteredTasksForDataset(dataset.id, {
       search,
-      durationMin: Number.isFinite(durationMin) ? durationMin : undefined,
-      durationMax: Number.isFinite(durationMax) ? durationMax : undefined,
       cameraCounts: selectedCams.length > 0 ? selectedCams : undefined,
       page,
       pageSize: PAGE_SIZE,
     }),
-    getCameraCountBreakdown(dataset.id),
+    getTaskCameraCountBreakdown(dataset.id),
     listDistinctTaskTitles(dataset.id),
   ]);
 
-  const isFiltered = Boolean(search || sp.durationMin || sp.durationMax || selectedCams.length > 0);
+  const isFiltered = Boolean(search || selectedCams.length > 0);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // Signing is pure local HMAC computation (no network call), so resolving
@@ -86,11 +78,11 @@ export default async function SampleDetailPage({
   const thumbnailUrls = new Map<string, string>();
   if (view === "cards") {
     await Promise.all(
-      episodes
-        .filter((e) => e.hasThumbnail && e.task)
-        .map(async (e) => {
-          const { url } = await getPublicSampleUrl(episodeThumbnailKey(e.task!, e.episodeIndex ?? 0));
-          thumbnailUrls.set(e.id, url);
+      tasks
+        .filter((t) => t.episodes[0]?.hasThumbnail)
+        .map(async (t) => {
+          const { url } = await getPublicSampleUrl(episodeThumbnailKey(t, 0));
+          thumbnailUrls.set(t.id, url);
         })
     );
   }
@@ -146,31 +138,6 @@ export default async function SampleDetailPage({
               </datalist>
             </label>
 
-            <div className="flex flex-col gap-1.5">
-              <span className="font-mono text-[0.66rem] uppercase tracking-wider text-ink-faint">
-                Duration (seconds)
-              </span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  name="durationMin"
-                  min={0}
-                  defaultValue={sp.durationMin ?? ""}
-                  placeholder="Min"
-                  className="w-full border border-line bg-card px-3 py-2 text-[0.85rem]"
-                />
-                <span className="text-ink-faint">–</span>
-                <input
-                  type="number"
-                  name="durationMax"
-                  min={0}
-                  defaultValue={sp.durationMax ?? ""}
-                  placeholder="Max"
-                  className="w-full border border-line bg-card px-3 py-2 text-[0.85rem]"
-                />
-              </div>
-            </div>
-
             <fieldset className="flex flex-col gap-1.5">
               <legend className="font-mono text-[0.66rem] uppercase tracking-wider text-ink-faint">
                 Camera count
@@ -207,8 +174,8 @@ export default async function SampleDetailPage({
         <main>
           <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
             <p className="text-[0.85rem] text-ink-soft">
-              Showing <b className="text-ink">{episodes.length}</b> of <b className="text-ink">{total}</b>{" "}
-              deliverable{total === 1 ? "" : "s"}
+              Showing <b className="text-ink">{tasks.length}</b> of <b className="text-ink">{total}</b> task
+              {total === 1 ? "" : "s"}
             </p>
             <div className="inline-flex border border-line">
               <Link
@@ -230,22 +197,22 @@ export default async function SampleDetailPage({
             </div>
           </div>
 
-          {episodes.length === 0 ? (
+          {tasks.length === 0 ? (
             <p className="border border-dashed border-line px-5 py-10 text-center text-[0.85rem] text-ink-faint">
-              No deliverables match these filters.
+              No tasks match these filters.
             </p>
           ) : view === "cards" ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {episodes.map((e) => (
+              {tasks.map((t) => (
                 <Link
-                  key={e.id}
-                  href={`/samples/${slug}/tasks/${e.taskId}/deliverables/${e.id}`}
+                  key={t.id}
+                  href={`/samples/${slug}/tasks/${t.id}`}
                   className="block border border-line bg-card p-4 transition-colors hover:border-line-strong"
                 >
                   <div className="mb-3 flex aspect-video items-center justify-center overflow-hidden rounded border border-line bg-paper-alt">
-                    {thumbnailUrls.has(e.id) ? (
+                    {thumbnailUrls.has(t.id) ? (
                       // eslint-disable-next-line @next/next/no-img-element -- signed MinIO URL, not a local/optimizable asset
-                      <img src={thumbnailUrls.get(e.id)} alt="" className="h-full w-full object-cover" />
+                      <img src={thumbnailUrls.get(t.id)} alt="" className="h-full w-full object-cover" />
                     ) : (
                       <svg
                         viewBox="0 0 24 24"
@@ -260,14 +227,13 @@ export default async function SampleDetailPage({
                     )}
                   </div>
                   <h3 className="mb-2 line-clamp-2 font-display text-[0.88rem] font-extrabold leading-snug">
-                    {e.task?.title}
+                    {t.title}
                   </h3>
-                  <div className="mb-2.5 flex items-center justify-between font-mono text-[0.72rem] text-ink-faint">
-                    <span>Ep {String(e.episodeIndex ?? 0).padStart(3, "0")}</span>
-                    <span className="tabular-nums text-signal-ink">{formatDuration(e.durationSeconds)}</span>
+                  <div className="mb-2.5 font-mono text-[0.72rem] text-ink-faint">
+                    {t._count.episodes} deliverable{t._count.episodes === 1 ? "" : "s"}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {e.task?.cameras.map((c) => (
+                    {t.cameras.map((c) => (
                       <span
                         key={c}
                         className="rounded-pill border border-line px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-wider text-ink-soft"
@@ -284,7 +250,7 @@ export default async function SampleDetailPage({
               <table className="w-full min-w-[640px] border-collapse">
                 <thead>
                   <tr>
-                    {["Task", "Episode", "Duration", "Cameras"].map((h) => (
+                    {["Task", "Deliverables", "Cameras"].map((h) => (
                       <th
                         key={h}
                         className="border-b-2 border-line-strong pb-3.5 pr-4 text-left font-mono text-[0.68rem] font-medium uppercase tracking-wider text-ink-faint"
@@ -295,27 +261,22 @@ export default async function SampleDetailPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {episodes.map((e, i) => (
-                    <tr key={e.id}>
+                  {tasks.map((t, i) => (
+                    <tr key={t.id}>
                       <td
-                        className={`max-w-[36ch] py-3.5 pr-4 text-[0.82rem] ${i === episodes.length - 1 ? "border-b border-line" : "border-b border-dashed border-line"}`}
+                        className={`max-w-[36ch] py-3.5 pr-4 text-[0.82rem] ${i === tasks.length - 1 ? "border-b border-line" : "border-b border-dashed border-line"}`}
                       >
-                        <Link href={`/samples/${slug}/tasks/${e.taskId}/deliverables/${e.id}`} className="hover:underline">
-                          {e.task?.title}
+                        <Link href={`/samples/${slug}/tasks/${t.id}`} className="hover:underline">
+                          {t.title}
                         </Link>
                       </td>
                       <td
-                        className={`py-3.5 pr-4 font-mono text-[0.78rem] text-ink-faint ${i === episodes.length - 1 ? "border-b border-line" : "border-b border-dashed border-line"}`}
+                        className={`py-3.5 pr-4 font-mono text-[0.78rem] tabular-nums text-signal-ink ${i === tasks.length - 1 ? "border-b border-line" : "border-b border-dashed border-line"}`}
                       >
-                        {String(e.episodeIndex ?? 0).padStart(3, "0")}
+                        {t._count.episodes}
                       </td>
-                      <td
-                        className={`py-3.5 pr-4 font-mono text-[0.78rem] tabular-nums text-signal-ink ${i === episodes.length - 1 ? "border-b border-line" : "border-b border-dashed border-line"}`}
-                      >
-                        {formatDuration(e.durationSeconds)}
-                      </td>
-                      <td className={`py-3.5 text-[0.78rem] text-ink-soft ${i === episodes.length - 1 ? "border-b border-line" : "border-b border-dashed border-line"}`}>
-                        {e.task?.cameras.map((c) => c.split(".").pop()).join(", ")}
+                      <td className={`py-3.5 text-[0.78rem] text-ink-soft ${i === tasks.length - 1 ? "border-b border-line" : "border-b border-dashed border-line"}`}>
+                        {t.cameras.map((c) => c.split(".").pop()).join(", ")}
                       </td>
                     </tr>
                   ))}
