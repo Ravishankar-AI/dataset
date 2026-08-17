@@ -14,6 +14,12 @@ import { prisma } from "./db";
 
 export const SESSION_COOKIE = "objectways_mock_session";
 
+// Set once a password (or new registration) checks out, before the email
+// code is verified -- holds the userId, not an email, so a guess can't be
+// used to skip straight to a session. Cleared once verified or on a fresh
+// sign-in/register attempt. See src/lib/twofactor.ts.
+export const PENDING_2FA_COOKIE = "objectways_pending_2fa";
+
 export type Role = "admin" | "contributor" | "customer";
 
 export type Session = {

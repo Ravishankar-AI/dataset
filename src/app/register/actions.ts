@@ -3,9 +3,11 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { SESSION_COOKIE } from "@/lib/auth";
+import { PENDING_2FA_COOKIE } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { sendEmail } from "@/lib/email";
+import { isFreeEmailDomain } from "@/lib/free-email-domains";
+import { sendLoginCode } from "@/lib/twofactor";
 
 const SALES_EMAIL = process.env.SALES_NOTIFICATION_EMAIL || "sales@objectways.com";
 
@@ -22,13 +24,18 @@ export async function register(formData: FormData) {
     redirect(`/register?${params.toString()}`);
   }
 
+  if (isFreeEmailDomain(email)) {
+    params.set("error", "free_email");
+    redirect(`/register?${params.toString()}`);
+  }
+
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     params.set("error", "taken");
     redirect(`/register?${params.toString()}`);
   }
 
-  await prisma.user.create({
+  const user = await prisma.user.create({
     data: { name, email, passwordHash: hashPassword(password), role: "customer" },
   });
 
@@ -45,12 +52,15 @@ export async function register(formData: FormData) {
     console.error("[register] failed to send sales notification email:", e);
   }
 
+  await sendLoginCode(user.id, user.email);
+
   const store = await cookies();
-  store.set(SESSION_COOKIE, email, {
+  store.set(PENDING_2FA_COOKIE, user.id, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
+    maxAge: 60 * 10,
   });
 
-  redirect(next || "/samples");
+  redirect(`/sign-in/verify?next=${encodeURIComponent(next)}`);
 }

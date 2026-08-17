@@ -42,6 +42,24 @@ model User {
   organization   Organization? @relation(fields: [organizationId], references: [id])
   organizationId String?
   createdAt      DateTime      @default(now())
+  loginCodes     LoginCode[]
+}
+
+// Email-delivered one-time code required on every sign-in (and right after
+// registration) before a session cookie is issued -- see src/lib/twofactor.ts.
+// codeHash rather than the raw code so a DB read alone can't complete a
+// sign-in; attempts/expiresAt bound brute-forcing the 6-digit space.
+model LoginCode {
+  id         String    @id @default(cuid())
+  user       User      @relation(fields: [userId], references: [id])
+  userId     String
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model Modality {
