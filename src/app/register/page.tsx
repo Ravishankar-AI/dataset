@@ -46,7 +46,7 @@ export default async function RegisterPage({
           />
         </label>
         <label className="flex flex-col gap-1.5">
-          <span className="font-mono text-[0.68rem] uppercase tracking-wider text-ink-faint">Email</span>
+          <span className="font-mono text-[0.68rem] uppercase tracking-wider text-ink-faint">Business Email</span>
           <input
             type="email"
             name="email"
