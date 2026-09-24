@@ -6,6 +6,7 @@ import { getPublicSampleUrl } from "@/lib/minio";
 import { getEpisodeForTask } from "@/lib/catalog";
 import { episodeVideoKey, episodeThumbnailKey, humanizeCameraName } from "@/lib/lerobot";
 import { formatDuration } from "@/lib/format";
+import { SampleVideo } from "@/components/sample-video";
 
 export default async function DeliverableDetailPage({
   params,
@@ -80,18 +81,7 @@ export default async function DeliverableDetailPage({
       {cameraPreviews.length > 0 ? (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
           {cameraPreviews.map((p) => (
-            <div key={p.camera}>
-              <video
-                src={p.url}
-                poster={p.poster}
-                controls
-                muted
-                className="aspect-video w-full rounded border border-line bg-line-strong"
-              />
-              <div className="mt-2 text-center text-[0.7rem] uppercase tracking-wider text-ink-faint">
-                {p.label}
-              </div>
-            </div>
+            <SampleVideo key={p.camera} src={p.url} poster={p.poster} label={p.label} />
           ))}
         </div>
       ) : (
