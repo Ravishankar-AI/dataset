@@ -5,8 +5,10 @@ import { getSession } from "@/lib/auth";
 import { getPublicSampleUrl } from "@/lib/minio";
 import { getEpisodeForTask } from "@/lib/catalog";
 import { episodeVideoKey, episodeThumbnailKey, humanizeCameraName } from "@/lib/lerobot";
+import { loadEpisodeTelemetry } from "@/lib/telemetry";
 import { formatDuration } from "@/lib/format";
 import { SampleVideo } from "@/components/sample-video";
+import { TelemetryPanel } from "@/components/telemetry-panel";
 
 export default async function DeliverableDetailPage({
   params,
@@ -35,14 +37,17 @@ export default async function DeliverableDetailPage({
     ? (await getPublicSampleUrl(episodeThumbnailKey(episode.task!, episode.episodeIndex!))).url
     : undefined;
 
-  const cameraPreviews = await Promise.all(
-    episode.task!.cameras.map(async (camera, i) => ({
-      camera,
-      label: humanizeCameraName(camera),
-      poster: i === 0 ? posterUrl : undefined,
-      ...(await getPublicSampleUrl(episodeVideoKey(episode.task!, episode.episodeIndex!, camera))),
-    }))
-  );
+  const [cameraPreviews, telemetry] = await Promise.all([
+    Promise.all(
+      episode.task!.cameras.map(async (camera, i) => ({
+        camera,
+        label: humanizeCameraName(camera),
+        poster: i === 0 ? posterUrl : undefined,
+        ...(await getPublicSampleUrl(episodeVideoKey(episode.task!, episode.episodeIndex!, camera))),
+      }))
+    ),
+    loadEpisodeTelemetry(episode.task!, episode.episodeIndex!),
+  ]);
   const anyLive = cameraPreviews.some((p) => p.isLive);
 
   return (
@@ -92,6 +97,8 @@ export default async function DeliverableDetailPage({
           MinIO credentials aren&apos;t configured in this environment, so these link to a placeholder.
         </p>
       )}
+
+      {telemetry && <TelemetryPanel telemetry={telemetry} />}
     </div>
   );
 }

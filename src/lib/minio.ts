@@ -73,6 +73,22 @@ export async function getSignedDownloadUrl(
   return { url, isLive: true };
 }
 
+// Unlike every other function here, this reads the object's actual bytes
+// into memory server-side rather than handing out a signed URL — needed
+// for telemetry (src/lib/telemetry.ts), which parses the parquet/JSON
+// files rather than serving them to a browser. Deliberate exception to
+// "the app server never proxies file bytes": these are small numeric
+// files (KBs), not video.
+export async function getObjectBuffer(key: string): Promise<Buffer | null> {
+  if (!hasMinioCredentials()) return null;
+
+  const response = await client().send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+  if (!response.Body) return null;
+  const bytes = await response.Body.transformToByteArray();
+  return Buffer.from(bytes);
+}
+
+
 export function getPublicSampleUrl(key: string): Promise<{ url: string; isLive: boolean }> {
   return getSignedDownloadUrl(key, SAMPLE_URL_TTL_SECONDS);
 }

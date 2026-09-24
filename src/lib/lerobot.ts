@@ -17,6 +17,13 @@ export function episodeParquetKey(dataset: DatasetLayout, episodeIndex: number) 
   return `${dataset.objectPrefix}data/${dataset.chunk}/episode_${pad(episodeIndex)}.parquet`;
 }
 
+// Dataset-level LeRobot metadata — feature schema (dims + per-dim names)
+// for observation.state/action, declared fps, etc. One per capture folder,
+// not per episode. See src/lib/telemetry.ts for what's parsed out of it.
+export function datasetInfoKey(dataset: DatasetLayout) {
+  return `${dataset.objectPrefix}meta/info.json`;
+}
+
 export function episodeVideoKey(dataset: DatasetLayout, episodeIndex: number, camera: string) {
   return `${dataset.objectPrefix}videos/${dataset.chunk}/${camera}/episode_${pad(episodeIndex)}.mp4`;
 }

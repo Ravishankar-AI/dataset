@@ -25,6 +25,20 @@ access-level doors** (Samples / Uploads / Datasets) over the NAS/MinIO pipeline.
   `Episode`, `Modality`, `Organization`, `Entitlement`. Samples, Uploads, and
   Datasets are access-tier filters over this same registry
   (`src/lib/catalog.ts`), not separate systems.
+- **Episode telemetry** (`src/lib/telemetry.ts`) — a sample deliverable page
+  also shows joint-state/gripper charts and heuristic grasp events, parsed
+  server-side from the episode's parquet file plus `meta/info.json`'s
+  feature schema (via `hyparquet`, a pure-JS reader — no native deps). This
+  is the one deliberate exception to "the app server never proxies file
+  bytes": parquet files are small numeric arrays, not video, so reading
+  them server-side is cheap. Gripper channels are identified by name match
+  (`left_gripper`, `right_gripper`, ...) and grasp/release events by
+  threshold-crossing on that channel — not from a real vision pipeline, so
+  there's no object tracking or segmentation overlay, and no semantic
+  phase timeline (approach/transport/retreat) since that would need
+  spatial reasoning this app doesn't have. Falls back to nothing rendered
+  (not a placeholder) when MinIO isn't configured or a capture's schema
+  doesn't match what's expected.
 
 ## Doors → routes
 
