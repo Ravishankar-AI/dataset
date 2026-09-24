@@ -63,16 +63,19 @@ function bufferToAsyncBuffer(buffer: Buffer): AsyncBuffer {
   };
 }
 
+export type Side = "left" | "right" | "other";
+
 export type ChannelSeries = {
   key: string;
   label: string;
+  side: Side;
   points: { t: number; v: number }[];
 };
 
 export type GraspEvent =
-  | { kind: "onset"; t: number; channel: string }
-  | { kind: "closed"; t: number; channel: string; holdSeconds: number; minValue: number }
-  | { kind: "release"; t: number; channel: string };
+  | { kind: "onset"; t: number; channel: string; side: Side }
+  | { kind: "closed"; t: number; channel: string; side: Side; holdSeconds: number; minValue: number }
+  | { kind: "release"; t: number; channel: string; side: Side };
 
 export type EpisodeTelemetry = {
   durationSeconds: number;
@@ -85,6 +88,22 @@ export type EpisodeTelemetry = {
 };
 
 const GRIPPER_NAME_PATTERN = /gripper|grip(?!_?cmd$)/i;
+
+// Bimanual rigs are the common case here (see the "Bimanual Robot
+// Manipulation Dataset" in the catalog) -- named channels are expected to
+// say which arm. Falls back to "other" rather than guessing at a left/right
+// split for single-arm captures or a naming convention that doesn't say.
+function detectSide(key: string): Side {
+  // Split on separators rather than using \b word-boundary regex -- \b
+  // treats underscore as a word character, so it never matches "left" in
+  // "left_joint_1" (confirmed: this silently broke the split entirely
+  // until caught in a screenshot test against a synthetic fixture).
+  const tokens = key.toLowerCase().split(/[_.\-\s]+/);
+  if (tokens.includes("left") || tokens.includes("l")) return "left";
+  if (tokens.includes("right") || tokens.includes("r")) return "right";
+  return "other";
+}
+
 
 export async function readEpisodeTelemetry(
   parquetBuffer: Buffer,
@@ -117,6 +136,7 @@ export async function readEpisodeTelemetry(
     channels.push({
       key,
       label,
+      side: detectSide(key),
       points: rows.map((r, i) => ({
         t: timestamps[i] - timestamps[0],
         v: Number((r["observation.state"] as number[])[dim]),
@@ -191,15 +211,16 @@ function detectGraspEvents(channel: ChannelSeries): { events: GraspEvent[]; enga
         const holdSeconds = t - onsetT;
         if (holdSeconds >= MIN_HOLD_SECONDS) {
           engagedSeconds += holdSeconds;
-          events.push({ kind: "onset", t: onsetT, channel: channel.key });
+          events.push({ kind: "onset", t: onsetT, channel: channel.key, side: channel.side });
           events.push({
             kind: "closed",
             t: onsetT,
             channel: channel.key,
+            side: channel.side,
             holdSeconds,
             minValue: minSinceOnset,
           });
-          events.push({ kind: "release", t, channel: channel.key });
+          events.push({ kind: "release", t, channel: channel.key, side: channel.side });
         }
         state = "open";
       }

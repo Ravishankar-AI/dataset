@@ -1,4 +1,4 @@
-import type { EpisodeTelemetry } from "@/lib/telemetry";
+import type { ChannelSeries, EpisodeTelemetry, Side } from "@/lib/telemetry";
 import { LineChart } from "./line-chart";
 import { formatDuration } from "@/lib/format";
 
@@ -6,9 +6,34 @@ function formatEventTime(t: number) {
   return `${t.toFixed(1)}s`;
 }
 
+function sideLabel(side: Side) {
+  return side === "left" ? "L" : side === "right" ? "R" : null;
+}
+
+function groupBySide(channels: ChannelSeries[]) {
+  return {
+    left: channels.filter((c) => c.side === "left"),
+    right: channels.filter((c) => c.side === "right"),
+    other: channels.filter((c) => c.side === "other"),
+  };
+}
+
+function ChartSeries(channels: ChannelSeries[]) {
+  return channels.map((c) => ({ label: c.label, points: c.points }));
+}
+
 export function TelemetryPanel({ telemetry }: { telemetry: EpisodeTelemetry }) {
   const closedEvents = telemetry.graspEvents.filter((e) => e.kind === "closed");
   const totalEngagedSeconds = Object.values(telemetry.engagedSecondsByChannel).reduce((a, b) => a + b, 0);
+
+  const joints = groupBySide(telemetry.jointChannels);
+  const jointsSplit = joints.left.length > 0 && joints.right.length > 0;
+
+  const grippers = groupBySide(telemetry.gripperChannels);
+  const grippersSplit = grippers.left.length > 0 && grippers.right.length > 0;
+
+  const engagedFor = (channels: ChannelSeries[]) =>
+    channels.reduce((sum, c) => sum + (telemetry.engagedSecondsByChannel[c.key] ?? 0), 0);
 
   return (
     <div className="mt-12 border-t border-dashed border-line pt-10">
@@ -40,17 +65,52 @@ export function TelemetryPanel({ telemetry }: { telemetry: EpisodeTelemetry }) {
 
       {telemetry.jointChannels.length > 0 && (
         <div className="mb-10">
-          <h3 className="mb-3 font-display text-[0.95rem] font-extrabold">Joint state</h3>
-          <LineChart series={telemetry.jointChannels.map((c) => ({ label: c.label, points: c.points }))} />
+          <h3 className="mb-3 font-display text-[0.95rem] font-extrabold">Joint angles</h3>
+          {jointsSplit ? (
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+              <div>
+                <div className="mb-2 font-mono text-[0.68rem] uppercase tracking-wider text-ink-faint">Left arm</div>
+                <LineChart series={ChartSeries(joints.left)} />
+              </div>
+              <div>
+                <div className="mb-2 font-mono text-[0.68rem] uppercase tracking-wider text-ink-faint">Right arm</div>
+                <LineChart series={ChartSeries(joints.right)} />
+              </div>
+            </div>
+          ) : (
+            <LineChart series={ChartSeries(telemetry.jointChannels)} />
+          )}
+          {!jointsSplit && joints.other.length > 0 && (joints.left.length > 0 || joints.right.length > 0) && (
+            <p className="mt-2 text-[0.72rem] text-ink-faint">
+              Some joint channel names don&apos;t say which arm, so they&apos;re shown together above.
+            </p>
+          )}
         </div>
       )}
 
       {telemetry.gripperChannels.length > 0 && (
         <div className="mb-10">
           <h3 className="mb-3 font-display text-[0.95rem] font-extrabold">
-            Gripper — engaged {totalEngagedSeconds.toFixed(1)}s of {telemetry.durationSeconds.toFixed(1)}s
+            Grip aperture — engaged {totalEngagedSeconds.toFixed(1)}s of {telemetry.durationSeconds.toFixed(1)}s
           </h3>
-          <LineChart series={telemetry.gripperChannels.map((c) => ({ label: c.label, points: c.points }))} />
+          {grippersSplit ? (
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+              <div>
+                <div className="mb-2 font-mono text-[0.68rem] uppercase tracking-wider text-ink-faint">
+                  Left — engaged {engagedFor(grippers.left).toFixed(1)}s
+                </div>
+                <LineChart series={ChartSeries(grippers.left)} />
+              </div>
+              <div>
+                <div className="mb-2 font-mono text-[0.68rem] uppercase tracking-wider text-ink-faint">
+                  Right — engaged {engagedFor(grippers.right).toFixed(1)}s
+                </div>
+                <LineChart series={ChartSeries(grippers.right)} />
+              </div>
+            </div>
+          ) : (
+            <LineChart series={ChartSeries(telemetry.gripperChannels)} />
+          )}
         </div>
       )}
 
@@ -69,7 +129,7 @@ export function TelemetryPanel({ telemetry }: { telemetry: EpisodeTelemetry }) {
                       {e.kind === "onset" && "Grasp onset"}
                       {e.kind === "closed" && "Grasp closed"}
                       {e.kind === "release" && "Release"}
-                      <span className="ml-1.5 text-ink-faint">· {e.channel}</span>
+                      <span className="ml-1.5 text-signal-ink">· {sideLabel(e.side) ?? e.channel}</span>
                     </td>
                     <td className="py-2.5 text-[0.8rem] text-ink-soft">
                       {e.kind === "closed" &&
