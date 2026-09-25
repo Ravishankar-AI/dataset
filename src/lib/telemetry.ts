@@ -104,6 +104,56 @@ function detectSide(key: string): Side {
   return "other";
 }
 
+function trailingIndex(key: string): number | null {
+  const m = key.match(/(\d+)$/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+// Identifies the gripper channel(s) per arm side. Prefers an explicit name
+// match ("left_gripper", "grip_cmd", ...); confirmed against a real
+// capture (Trossen/ALOHA-style bimanual rig) that has no such name at
+// all -- state channels are just "left_joint_0".."left_joint_6" (7 per
+// arm). For that case, the highest-numbered channel in each side's group
+// is treated as the gripper: 6-DOF arm + gripper as the 7th joint is the
+// standard convention for this class of rig. Falls back to no gripper
+// split (everything stays a "joint") when a side has only one channel or
+// names aren't numbered, rather than guessing wrong.
+function splitGripperChannels(channels: ChannelSeries[]): {
+  joints: ChannelSeries[];
+  grippers: ChannelSeries[];
+} {
+  const bySide = new Map<Side, ChannelSeries[]>();
+  for (const c of channels) {
+    if (!bySide.has(c.side)) bySide.set(c.side, []);
+    bySide.get(c.side)!.push(c);
+  }
+
+  const joints: ChannelSeries[] = [];
+  const grippers: ChannelSeries[] = [];
+
+  for (const group of bySide.values()) {
+    const named = group.filter((c) => GRIPPER_NAME_PATTERN.test(c.key));
+    if (named.length > 0) {
+      grippers.push(...named);
+      joints.push(...group.filter((c) => !GRIPPER_NAME_PATTERN.test(c.key)));
+      continue;
+    }
+
+    const indexed = group.map((c) => ({ c, idx: trailingIndex(c.key) }));
+    if (group.length > 1 && indexed.every((x) => x.idx !== null)) {
+      const maxIdx = Math.max(...indexed.map((x) => x.idx!));
+      const gripper = indexed.find((x) => x.idx === maxIdx)!.c;
+      grippers.push({ ...gripper, label: gripper.side === "other" ? "Gripper" : `${humanizeChannelName(gripper.side)} Gripper` });
+      joints.push(...group.filter((c) => c !== gripper));
+      continue;
+    }
+
+    joints.push(...group);
+  }
+
+  return { joints, grippers };
+}
+
 
 export async function readEpisodeTelemetry(
   parquetBuffer: Buffer,
@@ -113,11 +163,6 @@ export async function readEpisodeTelemetry(
   if (!stateSchema || stateSchema.shape.length === 0) return null;
   const dims = stateSchema.shape[stateSchema.shape.length - 1];
   const names = flattenNames(stateSchema.names, dims);
-  // Temporary: joint angles are matching real capture names correctly but
-  // gripper channels aren't -- logging the raw names to find out what the
-  // real naming convention actually is instead of guessing again.
-  console.log("[telemetry] observation.state names:", JSON.stringify(names));
-
 
   let rows: Record<string, unknown>[];
   try {
@@ -149,8 +194,7 @@ export async function readEpisodeTelemetry(
     });
   }
 
-  const gripperChannels = channels.filter((c) => GRIPPER_NAME_PATTERN.test(c.key));
-  const jointChannels = channels.filter((c) => !GRIPPER_NAME_PATTERN.test(c.key));
+  const { joints: jointChannels, grippers: gripperChannels } = splitGripperChannels(channels);
 
   const graspEvents: GraspEvent[] = [];
   const engagedSecondsByChannel: Record<string, number> = {};
