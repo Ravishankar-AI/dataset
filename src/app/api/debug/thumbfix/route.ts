@@ -63,6 +63,12 @@ export async function GET(req: NextRequest) {
     return new NextResponse(new Uint8Array(buf), { headers: { "content-type": "video/mp4" } });
   }
 
+  if (req.nextUrl.searchParams.get("list") === "1") {
+    const prefix = task.objectPrefix;
+    const keys = await listObjectKeys(prefix);
+    return NextResponse.json({ taskId, objectPrefix: prefix, chunk: task.chunk, cameras: task.cameras, keyCount: keys.length, keys: keys.slice(0, 40) });
+  }
+
   return NextResponse.json({ taskId, primaryCamera, videoKey, thumbKey: episodeThumbnailKey(task, 0) });
 }
 
