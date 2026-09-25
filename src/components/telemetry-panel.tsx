@@ -22,7 +22,15 @@ function ChartSeries(channels: ChannelSeries[]) {
   return channels.map((c) => ({ label: c.label, points: c.points }));
 }
 
-export function TelemetryPanel({ telemetry, videoFps }: { telemetry: EpisodeTelemetry; videoFps: number }) {
+export function TelemetryPanel({
+  telemetry,
+  videoFps,
+  cursorTime,
+}: {
+  telemetry: EpisodeTelemetry;
+  videoFps: number;
+  cursorTime?: number;
+}) {
   const closedEvents = telemetry.graspEvents.filter((e) => e.kind === "closed");
   const totalEngagedSeconds = Object.values(telemetry.engagedSecondsByChannel).reduce((a, b) => a + b, 0);
 
@@ -83,15 +91,15 @@ export function TelemetryPanel({ telemetry, videoFps }: { telemetry: EpisodeTele
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
               <div>
                 <div className="mb-2 font-mono text-[0.68rem] uppercase tracking-wider text-ink-faint">Left arm</div>
-                <LineChart series={ChartSeries(joints.left)} />
+                <LineChart series={ChartSeries(joints.left)} cursorTime={cursorTime} />
               </div>
               <div>
                 <div className="mb-2 font-mono text-[0.68rem] uppercase tracking-wider text-ink-faint">Right arm</div>
-                <LineChart series={ChartSeries(joints.right)} />
+                <LineChart series={ChartSeries(joints.right)} cursorTime={cursorTime} />
               </div>
             </div>
           ) : (
-            <LineChart series={ChartSeries(telemetry.jointChannels)} />
+            <LineChart series={ChartSeries(telemetry.jointChannels)} cursorTime={cursorTime} />
           )}
           {!jointsSplit && joints.other.length > 0 && (joints.left.length > 0 || joints.right.length > 0) && (
             <p className="mt-2 text-[0.72rem] text-ink-faint">
@@ -112,17 +120,17 @@ export function TelemetryPanel({ telemetry, videoFps }: { telemetry: EpisodeTele
                 <div className="mb-2 font-mono text-[0.68rem] uppercase tracking-wider text-ink-faint">
                   Left — engaged {engagedFor(grippers.left).toFixed(1)}s
                 </div>
-                <LineChart series={ChartSeries(grippers.left)} />
+                <LineChart series={ChartSeries(grippers.left)} cursorTime={cursorTime} />
               </div>
               <div>
                 <div className="mb-2 font-mono text-[0.68rem] uppercase tracking-wider text-ink-faint">
                   Right — engaged {engagedFor(grippers.right).toFixed(1)}s
                 </div>
-                <LineChart series={ChartSeries(grippers.right)} />
+                <LineChart series={ChartSeries(grippers.right)} cursorTime={cursorTime} />
               </div>
             </div>
           ) : (
-            <LineChart series={ChartSeries(telemetry.gripperChannels)} />
+            <LineChart series={ChartSeries(telemetry.gripperChannels)} cursorTime={cursorTime} />
           )}
         </div>
       )}

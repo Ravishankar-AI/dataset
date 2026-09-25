@@ -4,10 +4,16 @@ export function LineChart({
   series,
   height = 220,
   unitLabel,
+  cursorTime,
 }: {
   series: { label: string; points: { t: number; v: number }[] }[];
   height?: number;
   unitLabel?: string;
+  // Playback position (seconds, relative to episode start) from
+  // EpisodePlayer's synced video clock — draws a vertical line so the
+  // chart tracks whatever's currently playing. Undefined/out-of-range
+  // just omits the line rather than clamping it somewhere misleading.
+  cursorTime?: number;
 }) {
   const allPoints = series.flatMap((s) => s.points);
   if (allPoints.length === 0) return null;
@@ -28,6 +34,7 @@ export function LineChart({
 
   const yTicks = [vMin, vMin + vRange / 2, vMax];
   const xTicks = [0, tMax / 2, tMax];
+  const showCursor = cursorTime != null && cursorTime >= 0 && cursorTime <= tMax;
 
   return (
     <div>
@@ -62,6 +69,17 @@ export function LineChart({
             strokeWidth={1.5}
           />
         ))}
+        {showCursor && (
+          <line
+            x1={x(cursorTime)}
+            x2={x(cursorTime)}
+            y1={padTop}
+            y2={height - padBottom}
+            stroke="var(--line-strong)"
+            strokeWidth={1.5}
+            strokeDasharray="4 3"
+          />
+        )}
       </svg>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
         {series.map((s, i) => (

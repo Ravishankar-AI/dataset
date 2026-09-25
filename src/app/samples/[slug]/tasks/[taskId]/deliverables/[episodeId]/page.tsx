@@ -7,8 +7,7 @@ import { getEpisodeForTask } from "@/lib/catalog";
 import { episodeVideoKey, episodeThumbnailKey, humanizeCameraName } from "@/lib/lerobot";
 import { loadEpisodeTelemetry } from "@/lib/telemetry";
 import { formatDuration } from "@/lib/format";
-import { SampleVideo } from "@/components/sample-video";
-import { TelemetryPanel } from "@/components/telemetry-panel";
+import { EpisodePlayer } from "@/components/episode-player";
 
 export default async function DeliverableDetailPage({
   params,
@@ -83,22 +82,15 @@ export default async function DeliverableDetailPage({
         </div>
       </div>
 
-      {cameraPreviews.length > 0 ? (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-          {cameraPreviews.map((p) => (
-            <SampleVideo key={p.camera} src={p.url} poster={p.poster} label={p.label} />
-          ))}
-        </div>
-      ) : (
+      {cameraPreviews.length === 0 && (
         <p className="text-[0.85rem] text-ink-faint">No camera preview configured for this dataset.</p>
       )}
       {!anyLive && cameraPreviews.length > 0 && (
-        <p className="mt-3 text-[0.72rem] text-ink-faint">
+        <p className="mb-3 text-[0.72rem] text-ink-faint">
           MinIO credentials aren&apos;t configured in this environment, so these link to a placeholder.
         </p>
       )}
-
-      {telemetry && <TelemetryPanel telemetry={telemetry} videoFps={dataset.fps} />}
+      <EpisodePlayer cameras={cameraPreviews} telemetry={telemetry} videoFps={dataset.fps} />
     </div>
   );
 }
