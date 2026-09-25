@@ -113,6 +113,11 @@ export async function readEpisodeTelemetry(
   if (!stateSchema || stateSchema.shape.length === 0) return null;
   const dims = stateSchema.shape[stateSchema.shape.length - 1];
   const names = flattenNames(stateSchema.names, dims);
+  // Temporary: joint angles are matching real capture names correctly but
+  // gripper channels aren't -- logging the raw names to find out what the
+  // real naming convention actually is instead of guessing again.
+  console.log("[telemetry] observation.state names:", JSON.stringify(names));
+
 
   let rows: Record<string, unknown>[];
   try {
