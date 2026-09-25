@@ -85,6 +85,7 @@ export type EpisodeTelemetry = {
   gripperChannels: ChannelSeries[];
   graspEvents: GraspEvent[];
   engagedSecondsByChannel: Record<string, number>;
+  armsUsed: Side[];
 };
 
 const GRIPPER_NAME_PATTERN = /gripper|grip(?!_?cmd$)/i;
@@ -205,6 +206,22 @@ export async function readEpisodeTelemetry(
   }
   graspEvents.sort((a, b) => a.t - b.t);
 
+  // A side counts as "used" if any of its channels actually moved beyond
+  // sensor noise, or it grasped at least once -- distinguishes an arm
+  // that sat idle for the episode from one that was actively teleoperated,
+  // rather than just reporting which sides have channels at all (which is
+  // every episode, on a bimanual rig).
+  const MOVEMENT_EPSILON = 0.01;
+  const armsUsed: Side[] = (["left", "right"] as const).filter((side) => {
+    const sideChannels = channels.filter((c) => c.side === side);
+    const moved = sideChannels.some((c) => {
+      const values = c.points.map((p) => p.v);
+      return values.length > 0 && Math.max(...values) - Math.min(...values) > MOVEMENT_EPSILON;
+    });
+    const grasped = graspEvents.some((e) => e.side === side);
+    return moved || grasped;
+  });
+
   return {
     durationSeconds,
     sampleCount: rows.length,
@@ -213,6 +230,7 @@ export async function readEpisodeTelemetry(
     gripperChannels,
     graspEvents,
     engagedSecondsByChannel,
+    armsUsed,
   };
 }
 

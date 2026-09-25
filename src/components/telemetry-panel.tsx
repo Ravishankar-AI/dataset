@@ -22,7 +22,7 @@ function ChartSeries(channels: ChannelSeries[]) {
   return channels.map((c) => ({ label: c.label, points: c.points }));
 }
 
-export function TelemetryPanel({ telemetry }: { telemetry: EpisodeTelemetry }) {
+export function TelemetryPanel({ telemetry, videoFps }: { telemetry: EpisodeTelemetry; videoFps: number }) {
   const closedEvents = telemetry.graspEvents.filter((e) => e.kind === "closed");
   const totalEngagedSeconds = Object.values(telemetry.engagedSecondsByChannel).reduce((a, b) => a + b, 0);
 
@@ -35,6 +35,28 @@ export function TelemetryPanel({ telemetry }: { telemetry: EpisodeTelemetry }) {
   const engagedFor = (channels: ChannelSeries[]) =>
     channels.reduce((sum, c) => sum + (telemetry.engagedSecondsByChannel[c.key] ?? 0), 0);
 
+  // Video frame count isn't read from the capture (that'd mean opening
+  // every camera's mp4 just to probe it) -- estimated from the dataset's
+  // declared capture fps × this episode's duration instead.
+  const estimatedFrames = Math.round(videoFps * telemetry.durationSeconds);
+
+  const metaStats: { label: string; value: string }[] = [
+    { label: "Duration", value: formatDuration(Math.round(telemetry.durationSeconds)) },
+    {
+      label: "Arms used",
+      value: telemetry.armsUsed.length === 2 ? "both" : telemetry.armsUsed[0] ?? "—",
+    },
+    { label: "Grasps", value: String(closedEvents.length) },
+    { label: "Peak force · L", value: "no data" },
+    { label: "Peak force · R", value: "no data" },
+    { label: "Engaged", value: `${totalEngagedSeconds.toFixed(1)}s of ${telemetry.durationSeconds.toFixed(1)}s` },
+    { label: "Engaged left", value: `${engagedFor(grippers.left).toFixed(1)}s` },
+    { label: "Engaged right", value: `${engagedFor(grippers.right).toFixed(1)}s` },
+    { label: "State samples", value: telemetry.sampleCount.toLocaleString() },
+    { label: "State Hz", value: String(telemetry.fps) },
+    { label: "Frames (est.)", value: `${estimatedFrames.toLocaleString()} RGB` },
+  ];
+
   return (
     <div className="mt-12 border-t border-dashed border-line pt-10">
       <div className="mb-2 font-mono text-[0.72rem] uppercase tracking-wider text-ink-faint">
@@ -42,25 +64,16 @@ export function TelemetryPanel({ telemetry }: { telemetry: EpisodeTelemetry }) {
       </div>
       <h2 className="mb-8 text-[1.5rem]">Episode data</h2>
 
-      <div className="mb-10 grid grid-cols-2 gap-5 border-y border-dashed border-line py-6 sm:grid-cols-4">
-        <div>
-          <b className="block font-display text-[1.1rem] font-extrabold tabular-nums">
-            {formatDuration(Math.round(telemetry.durationSeconds))}
-          </b>
-          <span className="text-[0.66rem] uppercase tracking-wider text-ink-faint">Duration</span>
-        </div>
-        <div>
-          <b className="block font-display text-[1.1rem] font-extrabold tabular-nums">{telemetry.sampleCount.toLocaleString()}</b>
-          <span className="text-[0.66rem] uppercase tracking-wider text-ink-faint">State samples</span>
-        </div>
-        <div>
-          <b className="block font-display text-[1.1rem] font-extrabold tabular-nums">{telemetry.fps}</b>
-          <span className="text-[0.66rem] uppercase tracking-wider text-ink-faint">State Hz</span>
-        </div>
-        <div>
-          <b className="block font-display text-[1.1rem] font-extrabold tabular-nums">{closedEvents.length}</b>
-          <span className="text-[0.66rem] uppercase tracking-wider text-ink-faint">Grasps</span>
-        </div>
+      <div className="mb-10 border-y border-dashed border-line">
+        {metaStats.map((stat) => (
+          <div
+            key={stat.label}
+            className="flex items-center justify-between gap-4 border-b border-dashed border-line py-3 last:border-b-0"
+          >
+            <span className="font-mono text-[0.7rem] uppercase tracking-wider text-ink-faint">{stat.label}</span>
+            <span className="font-display text-[0.95rem] font-extrabold tabular-nums">{stat.value}</span>
+          </div>
+        ))}
       </div>
 
       {telemetry.jointChannels.length > 0 && (

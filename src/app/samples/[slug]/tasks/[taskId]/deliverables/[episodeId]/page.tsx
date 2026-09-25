@@ -98,7 +98,7 @@ export default async function DeliverableDetailPage({
         </p>
       )}
 
-      {telemetry && <TelemetryPanel telemetry={telemetry} />}
+      {telemetry && <TelemetryPanel telemetry={telemetry} videoFps={dataset.fps} />}
     </div>
   );
 }
