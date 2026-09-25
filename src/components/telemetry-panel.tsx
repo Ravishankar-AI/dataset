@@ -48,6 +48,15 @@ export function TelemetryPanel({
   // declared capture fps × this episode's duration instead.
   const estimatedFrames = Math.round(videoFps * telemetry.durationSeconds);
 
+  // How closely the arm tracked what it was commanded to do (|action -
+  // observation.state|, see telemetry.ts) -- the closest thing to a data-
+  // quality signal this capture format has, since there's no force/torque
+  // channel to get one from instead.
+  const trackingErrorLabel = (side: "left" | "right") => {
+    const e = telemetry.trackingErrorBySide[side];
+    return e ? `${e.mean.toFixed(3)} avg · ${e.peak.toFixed(3)} peak` : "no data";
+  };
+
   const metaStats: { label: string; value: string }[] = [
     { label: "Duration", value: formatDuration(Math.round(telemetry.durationSeconds)) },
     {
@@ -57,12 +66,20 @@ export function TelemetryPanel({
     { label: "Grasps", value: String(closedEvents.length) },
     { label: "Peak force · L", value: "no data" },
     { label: "Peak force · R", value: "no data" },
+    { label: "Tracking error · L", value: trackingErrorLabel("left") },
+    { label: "Tracking error · R", value: trackingErrorLabel("right") },
     { label: "Engaged", value: `${totalEngagedSeconds.toFixed(1)}s of ${telemetry.durationSeconds.toFixed(1)}s` },
     { label: "Engaged left", value: `${engagedFor(grippers.left).toFixed(1)}s` },
     { label: "Engaged right", value: `${engagedFor(grippers.right).toFixed(1)}s` },
     { label: "State samples", value: telemetry.sampleCount.toLocaleString() },
     { label: "State Hz", value: String(telemetry.fps) },
     { label: "Frames (est.)", value: `${estimatedFrames.toLocaleString()} RGB` },
+    ...(telemetry.videoSpec
+      ? [{
+          label: "Video",
+          value: `${telemetry.videoSpec.width}×${telemetry.videoSpec.height} · ${telemetry.videoSpec.codec.toUpperCase()} · ${telemetry.videoSpec.fps}fps`,
+        }]
+      : []),
   ];
 
   return (
@@ -72,7 +89,7 @@ export function TelemetryPanel({
       </div>
       <h2 className="mb-8 text-[1.5rem]">Episode data</h2>
 
-      <div className="mb-10 border-y border-dashed border-line">
+      <div className="mb-2 border-y border-dashed border-line">
         {metaStats.map((stat) => (
           <div
             key={stat.label}
@@ -83,6 +100,16 @@ export function TelemetryPanel({
           </div>
         ))}
       </div>
+
+      {telemetry.datasetTotals ? (
+        <p className="mb-10 text-[0.72rem] text-ink-faint">
+          This task&apos;s full capture: {telemetry.datasetTotals.totalEpisodes?.toLocaleString() ?? "—"} episodes ·{" "}
+          {telemetry.datasetTotals.totalFrames?.toLocaleString() ?? "—"} frames ·{" "}
+          {telemetry.datasetTotals.totalVideos?.toLocaleString() ?? "—"} videos
+        </p>
+      ) : (
+        <div className="mb-8" />
+      )}
 
       {telemetry.jointChannels.length > 0 && (
         <div className="mb-10">

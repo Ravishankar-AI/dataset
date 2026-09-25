@@ -16,21 +16,56 @@ export type FeatureSchema = {
   dtype: string;
   shape: number[];
   names?: string[];
+  // Only present on observation.images.* video features -- per-camera
+  // capture specs (LeRobot writes the same values for every camera on a
+  // rig, but this doesn't assume that; see videoSpec()).
+  info?: {
+    "video.fps"?: number;
+    "video.height"?: number;
+    "video.width"?: number;
+    "video.codec"?: string;
+  };
 };
+
+export type VideoSpec = { width: number; height: number; fps: number; codec: string };
 
 export type DatasetInfo = {
   fps: number;
   features: Record<string, FeatureSchema>;
+  // Declared by the capture tool itself (meta/info.json), not derived --
+  // scoped to this task's own capture folder, same as objectPrefix.
+  totalEpisodes?: number;
+  totalFrames?: number;
+  totalVideos?: number;
 };
 
 export function parseDatasetInfo(buffer: Buffer): DatasetInfo | null {
   try {
     const json = JSON.parse(buffer.toString("utf-8"));
     if (!json.features || typeof json.features !== "object") return null;
-    return { fps: Number(json.fps) || 30, features: json.features };
+    return {
+      fps: Number(json.fps) || 30,
+      features: json.features,
+      totalEpisodes: typeof json.total_episodes === "number" ? json.total_episodes : undefined,
+      totalFrames: typeof json.total_frames === "number" ? json.total_frames : undefined,
+      totalVideos: typeof json.total_videos === "number" ? json.total_videos : undefined,
+    };
   } catch {
     return null;
   }
+}
+
+// Reads capture specs off the first observation.images.* feature that has
+// them -- LeRobot writes the same fps/resolution/codec for every camera on
+// a rig, so one representative camera is enough rather than assuming
+// which camera key exists.
+export function videoSpec(info: DatasetInfo): VideoSpec | null {
+  for (const [key, schema] of Object.entries(info.features)) {
+    if (!key.startsWith("observation.images.") || !schema.info) continue;
+    const { "video.width": width, "video.height": height, "video.fps": fps, "video.codec": codec } = schema.info;
+    if (width && height && fps && codec) return { width, height, fps, codec };
+  }
+  return null;
 }
 
 // LeRobot's `names` field for a list-typed feature is sometimes a flat
@@ -77,6 +112,8 @@ export type GraspEvent =
   | { kind: "closed"; t: number; channel: string; side: Side; holdSeconds: number; minValue: number }
   | { kind: "release"; t: number; channel: string; side: Side };
 
+export type TrackingError = { mean: number; peak: number };
+
 export type EpisodeTelemetry = {
   durationSeconds: number;
   sampleCount: number;
@@ -86,6 +123,13 @@ export type EpisodeTelemetry = {
   graspEvents: GraspEvent[];
   engagedSecondsByChannel: Record<string, number>;
   armsUsed: Side[];
+  // |action - observation.state| per side, averaged/maxed across that
+  // side's channels and every timestep -- how closely the arm tracked
+  // what it was commanded to do. Absent (not "other") when the capture
+  // has no `action` column, rather than reporting a false zero.
+  trackingErrorBySide: Partial<Record<Side, TrackingError>>;
+  videoSpec: VideoSpec | null;
+  datasetTotals: { totalEpisodes?: number; totalFrames?: number; totalVideos?: number } | null;
 };
 
 const GRIPPER_NAME_PATTERN = /gripper|grip(?!_?cmd$)/i;
@@ -165,11 +209,14 @@ export async function readEpisodeTelemetry(
   const dims = stateSchema.shape[stateSchema.shape.length - 1];
   const names = flattenNames(stateSchema.names, dims);
 
+  const actionSchema = info.features["action"];
+  const hasAction = Boolean(actionSchema && actionSchema.shape.length > 0);
+
   let rows: Record<string, unknown>[];
   try {
     rows = await parquetReadObjects({
       file: bufferToAsyncBuffer(parquetBuffer),
-      columns: ["timestamp", "observation.state"],
+      columns: hasAction ? ["timestamp", "observation.state", "action"] : ["timestamp", "observation.state"],
     });
   } catch {
     return null;
@@ -193,6 +240,34 @@ export async function readEpisodeTelemetry(
         v: Number((r["observation.state"] as number[])[dim]),
       })),
     });
+  }
+
+  // action and observation.state share the same dims/names in every real
+  // capture checked (left/right_joint_0..6) -- diffing them per timestep
+  // gives how closely the arm actually tracked what it was commanded to
+  // do, which is otherwise invisible (no force/torque channel exists in
+  // this capture format to get it from elsewhere).
+  const trackingErrorBySide: Partial<Record<Side, TrackingError>> = {};
+  if (hasAction) {
+    const errorsBySide = new Map<Side, number[]>();
+    for (let dim = 0; dim < dims; dim++) {
+      const side = channels[dim].side;
+      const errors = errorsBySide.get(side) ?? [];
+      for (const row of rows) {
+        const actionRow = row.action as number[] | undefined;
+        const stateRow = row["observation.state"] as number[];
+        if (!actionRow) continue;
+        errors.push(Math.abs(actionRow[dim] - stateRow[dim]));
+      }
+      errorsBySide.set(side, errors);
+    }
+    for (const [side, errors] of errorsBySide) {
+      if (errors.length === 0) continue;
+      trackingErrorBySide[side] = {
+        mean: errors.reduce((a, b) => a + b, 0) / errors.length,
+        peak: Math.max(...errors),
+      };
+    }
   }
 
   const { joints: jointChannels, grippers: gripperChannels } = splitGripperChannels(channels);
@@ -231,6 +306,11 @@ export async function readEpisodeTelemetry(
     graspEvents,
     engagedSecondsByChannel,
     armsUsed,
+    trackingErrorBySide,
+    videoSpec: videoSpec(info),
+    datasetTotals: info.totalEpisodes || info.totalFrames || info.totalVideos
+      ? { totalEpisodes: info.totalEpisodes, totalFrames: info.totalFrames, totalVideos: info.totalVideos }
+      : null,
   };
 }
 
