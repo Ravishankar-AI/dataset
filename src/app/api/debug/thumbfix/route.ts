@@ -53,7 +53,12 @@ export async function GET(req: NextRequest) {
   const videoKey = episodeVideoKey(task, 0, primaryCamera);
 
   if (req.nextUrl.searchParams.get("download") === "1") {
-    const buf = await getObjectBuffer(videoKey);
+    let buf: Buffer | null;
+    try {
+      buf = await getObjectBuffer(videoKey);
+    } catch (err) {
+      return NextResponse.json({ error: "fetch failed", videoKey, detail: String(err) }, { status: 404 });
+    }
     if (!buf) return NextResponse.json({ error: "video not found", videoKey }, { status: 404 });
     return new NextResponse(new Uint8Array(buf), { headers: { "content-type": "video/mp4" } });
   }
