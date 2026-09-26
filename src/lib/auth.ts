@@ -41,6 +41,10 @@ export async function getSession(): Promise<Session | null> {
     include: { organization: true },
   });
   if (!user) return null;
+  // Checked here, not just at sign-in -- an admin blocking someone from
+  // /admin/activity takes effect on their very next request, not just
+  // their next login, even against a session cookie already issued.
+  if (user.isBlocked) return null;
 
   return {
     userId: user.id,

@@ -12,6 +12,7 @@ export default async function SignInPage({
   const [session, resolvedSearchParams] = await Promise.all([getSession(), searchParams]);
   const next = resolvedSearchParams.next ?? "/samples";
   const hasError = resolvedSearchParams.error === "invalid";
+  const isBlocked = resolvedSearchParams.error === "blocked";
 
   if (session) {
     return (
@@ -46,6 +47,11 @@ export default async function SignInPage({
       {hasError && (
         <p className="mb-6 border border-line-strong bg-paper-alt p-3 text-[0.85rem] text-signal-ink">
           Invalid email or password.
+        </p>
+      )}
+      {isBlocked && (
+        <p className="mb-6 border border-line-strong bg-paper-alt p-3 text-[0.85rem] text-signal-ink">
+          This account has been disabled. Contact your administrator.
         </p>
       )}
 

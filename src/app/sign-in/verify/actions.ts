@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { PENDING_2FA_COOKIE, SESSION_COOKIE } from "@/lib/auth";
 import { sendLoginCode, verifyLoginCode } from "@/lib/twofactor";
+import { logLogin } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/request-meta";
 
 export async function verifyCode(formData: FormData) {
   const code = String(formData.get("code") ?? "").trim();
@@ -32,6 +34,8 @@ export async function verifyCode(formData: FormData) {
     sameSite: "lax",
     path: "/",
   });
+
+  await logLogin(user.id, await getRequestMeta());
 
   redirect(next || "/samples");
 }

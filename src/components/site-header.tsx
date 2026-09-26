@@ -30,6 +30,11 @@ export function SiteHeader({ session }: { session: Session | null }) {
               Ingestion
             </Link>
           )}
+          {session?.role === "admin" && (
+            <Link href="/admin/activity" className="hover:text-ink">
+              Activity
+            </Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-4">

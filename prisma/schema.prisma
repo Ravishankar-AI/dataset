@@ -43,6 +43,13 @@ model User {
   organizationId String?
   createdAt      DateTime      @default(now())
   loginCodes     LoginCode[]
+  loginEvents    LoginEvent[]
+  accessEvents   AccessEvent[]
+  // Set by an admin from /admin/activity, not by the user. Checked in
+  // getSession() (not just at sign-in), so it takes effect immediately
+  // even against an already-issued session cookie -- see src/lib/auth.ts.
+  isBlocked      Boolean       @default(false)
+  blockedAt      DateTime?
 }
 
 // Email-delivered one-time code required on every sign-in (and right after
@@ -60,6 +67,43 @@ model LoginCode {
   createdAt  DateTime  @default(now())
 
   @@index([userId])
+}
+
+// One row per completed sign-in (2FA verified, session cookie issued) --
+// see src/app/sign-in/verify/actions.ts. Failed password/2FA attempts
+// aren't logged here since they never reach a session.
+model LoginEvent {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// One row per episode-deliverable page view that issued signed sample
+// URLs -- the closest server-side signal to "this user accessed these
+// files" the architecture has. Actual video bytes are fetched by the
+// browser straight from MinIO (see src/lib/minio.ts's doc comment), so
+// this is access-to-a-signed-link, not a confirmed byte-level download.
+// A high count in a short window across many distinct episodes is the
+// scraping signal /admin/activity flags.
+model AccessEvent {
+  id           String   @id @default(cuid())
+  user         User     @relation(fields: [userId], references: [id])
+  userId       String
+  datasetSlug  String
+  taskId       String
+  episodeIndex Int
+  cameraCount  Int
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model Modality {

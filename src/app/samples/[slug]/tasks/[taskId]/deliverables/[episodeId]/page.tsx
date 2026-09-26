@@ -8,6 +8,8 @@ import { episodeVideoKey, episodeThumbnailKey, humanizeCameraName } from "@/lib/
 import { loadEpisodeTelemetry } from "@/lib/telemetry";
 import { formatDuration } from "@/lib/format";
 import { EpisodePlayer } from "@/components/episode-player";
+import { logAccess } from "@/lib/audit";
+import { getRequestMeta } from "@/lib/request-meta";
 
 export default async function DeliverableDetailPage({
   params,
@@ -48,6 +50,20 @@ export default async function DeliverableDetailPage({
     loadEpisodeTelemetry(episode.task!, episode.episodeIndex!),
   ]);
   const anyLive = cameraPreviews.some((p) => p.isLive);
+
+  // Best-effort: a logging hiccup shouldn't break the page someone's
+  // actually trying to view. See AccessEvent's doc comment for what this
+  // does and doesn't prove.
+  if (cameraPreviews.length > 0) {
+    logAccess({
+      userId: session.userId,
+      datasetSlug: slug,
+      taskId: episode.task!.id,
+      episodeIndex: episode.episodeIndex!,
+      cameraCount: cameraPreviews.length,
+      ipAddress: (await getRequestMeta()).ipAddress,
+    }).catch((e) => console.error("[audit] failed to log access event:", e));
+  }
 
   return (
     <div className="mx-auto max-w-[1230px] px-8 py-16">

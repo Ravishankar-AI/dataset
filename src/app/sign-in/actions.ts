@@ -16,6 +16,9 @@ export async function signIn(formData: FormData) {
   if (!user || !verifyPassword(password, user.passwordHash)) {
     redirect(`/sign-in?next=${encodeURIComponent(next)}&error=invalid`);
   }
+  if (user.isBlocked) {
+    redirect(`/sign-in?next=${encodeURIComponent(next)}&error=blocked`);
+  }
 
   await sendLoginCode(user.id, user.email);
 
