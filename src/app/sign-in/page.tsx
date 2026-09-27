@@ -7,12 +7,13 @@ export const metadata = { title: "Sign in — Objectways Data" };
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; reset?: string }>;
 }) {
   const [session, resolvedSearchParams] = await Promise.all([getSession(), searchParams]);
   const next = resolvedSearchParams.next ?? "/samples";
   const hasError = resolvedSearchParams.error === "invalid";
   const isBlocked = resolvedSearchParams.error === "blocked";
+  const justReset = resolvedSearchParams.reset === "1";
 
   if (session) {
     return (
@@ -54,6 +55,11 @@ export default async function SignInPage({
           This account has been disabled. Contact your administrator.
         </p>
       )}
+      {justReset && (
+        <p className="mb-6 border border-line-strong bg-paper-alt p-3 text-[0.85rem]">
+          Password updated. Sign in with your new password.
+        </p>
+      )}
 
       <form action={signIn} className="flex flex-col gap-4">
         <input type="hidden" name="next" value={next} />
@@ -67,7 +73,15 @@ export default async function SignInPage({
           />
         </label>
         <label className="flex flex-col gap-1.5">
-          <span className="font-mono text-[0.68rem] uppercase tracking-wider text-ink-faint">Password</span>
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[0.68rem] uppercase tracking-wider text-ink-faint">Password</span>
+            <Link
+              href={`/forgot-password?next=${encodeURIComponent(next)}`}
+              className="font-mono text-[0.68rem] uppercase tracking-wider text-signal-ink underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
           <input
             type="password"
             name="password"

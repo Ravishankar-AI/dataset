@@ -45,6 +45,7 @@ model User {
   loginCodes     LoginCode[]
   loginEvents    LoginEvent[]
   accessEvents   AccessEvent[]
+  passwordResetTokens PasswordResetToken[]
   // Set by an admin from /admin/activity, not by the user. Checked in
   // getSession() (not just at sign-in), so it takes effect immediately
   // even against an already-issued session cookie -- see src/lib/auth.ts.
@@ -67,6 +68,25 @@ model LoginCode {
   createdAt  DateTime  @default(now())
 
   @@index([userId])
+}
+
+// Email-delivered "forgot password" link -- see src/lib/password-reset.ts.
+// tokenHash rather than the raw token, same reasoning as LoginCode.codeHash:
+// a DB read alone can't complete a reset. The token is a long random
+// string (not a 6-digit code), so there's no attempts/lockout counter --
+// guessing it isn't a realistic brute-force target the way a 6-digit code
+// is.
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  user       User      @relation(fields: [userId], references: [id])
+  userId     String
+  tokenHash  String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([tokenHash])
 }
 
 // One row per completed sign-in (2FA verified, session cookie issued) --
