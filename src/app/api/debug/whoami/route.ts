@@ -17,5 +17,10 @@ export async function GET(req: NextRequest) {
     select: { id: true, email: true, name: true, isBlocked: true, createdAt: true },
   });
 
-  return NextResponse.json({ admins });
+  const allUsers = await prisma.user.findMany({
+    select: { id: true, email: true, name: true, role: true, isBlocked: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return NextResponse.json({ admins, allUsers });
 }
