@@ -24,3 +24,21 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ admins, allUsers });
 }
+
+// One-off: promote a specific account to admin by email. Requires the
+// exact email as a query param rather than acting on "the first user" or
+// similar, so this can't be misapplied to the wrong account.
+export async function POST(req: NextRequest) {
+  if (req.nextUrl.searchParams.get("secret") !== DEBUG_SECRET) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  const email = req.nextUrl.searchParams.get("email");
+  if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
+
+  const user = await prisma.user.update({
+    where: { email },
+    data: { role: "admin" },
+    select: { id: true, email: true, role: true },
+  });
+  return NextResponse.json({ promoted: user });
+}
