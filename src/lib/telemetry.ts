@@ -55,6 +55,42 @@ export function parseDatasetInfo(buffer: Buffer): DatasetInfo | null {
   }
 }
 
+// A rig reporting x/y/z/roll/pitch/yaw per hand (e.g. the UMI gripper's
+// wrist pose from SLAM) is fundamentally different from one reporting
+// joint_0..joint_N angles (e.g. the bimanual teleoperation arms) -- the
+// chart/label should say which, not call a Cartesian pose a "joint".
+const POSE_AXIS_PATTERN = /_(x|y|z|roll|pitch|yaw)$/i;
+function kinematicsLabel(names: string[] | null): string {
+  if (names?.some((n) => POSE_AXIS_PATTERN.test(n))) return "End-effector pose";
+  return "Joint angles";
+}
+
+// Straight from the capture pipeline's own per-episode QA pass, not
+// re-derived here -- it already knows which frames were frozen/duplicated
+// per stream (something this app can't tell from a parquet file alone)
+// and which streams never showed up in a given episode at all. One file
+// per task, one record per episode_index.
+function parseStaleness(buffer: Buffer, episodeIndex: number): DataQuality | null {
+  try {
+    const arr = JSON.parse(buffer.toString("utf-8"));
+    if (!Array.isArray(arr)) return null;
+    const rec = arr.find((r) => r?.episode_index === episodeIndex);
+    if (!rec || typeof rec.ticks !== "number" || rec.ticks <= 0) return null;
+
+    const staleFractionByStream: Record<string, number> = {};
+    for (const [stream, ticks] of Object.entries(rec.stale_ticks ?? {})) {
+      if (typeof ticks === "number") staleFractionByStream[stream] = ticks / rec.ticks;
+    }
+    return {
+      ticks: rec.ticks,
+      staleFractionByStream,
+      absentStreams: Array.isArray(rec.absent_streams) ? rec.absent_streams : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 // Reads capture specs off the first observation.images.* feature that has
 // them -- LeRobot writes the same fps/resolution/codec for every camera on
 // a rig, so one representative camera is enough rather than assuming
@@ -114,10 +150,33 @@ export type GraspEvent =
 
 export type TrackingError = { mean: number; peak: number };
 
+// Peak vector magnitude (sqrt(x²+y²+z²) per timestep, maxed over the
+// episode) of a wrist-mounted IMU -- gyro in rad/s-ish raw units, accel in
+// g-ish raw units, whatever the capture declares (no units given). Only
+// present on rigs that actually have an IMU (see observation.imu in
+// meta/info.json); nothing in the older bimanual joint-angle captures has
+// this.
+export type ImuSummary = { peakGyro: number; peakAccel: number };
+
+// Per-stream frozen/duplicate-frame fraction and entirely-missing streams,
+// straight from the capture pipeline's own meta/staleness.json (not
+// computed here) -- see loadEpisodeTelemetry's doc comment on why this is
+// trusted rather than re-derived.
+export type DataQuality = {
+  ticks: number;
+  staleFractionByStream: Record<string, number>;
+  absentStreams: string[];
+};
+
 export type EpisodeTelemetry = {
   durationSeconds: number;
   sampleCount: number;
   fps: number;
+  // "End-effector pose" for a Cartesian x/y/z/roll/pitch/yaw rig (e.g. the
+  // UMI gripper), "Joint angles" for a joint-space rig (e.g. the bimanual
+  // teleoperation arms) -- same chart mechanics either way, this only
+  // changes what the section calls itself. See kinematicsLabel().
+  kinematicsLabel: string;
   jointChannels: ChannelSeries[];
   gripperChannels: ChannelSeries[];
   graspEvents: GraspEvent[];
@@ -128,8 +187,10 @@ export type EpisodeTelemetry = {
   // what it was commanded to do. Absent (not "other") when the capture
   // has no `action` column, rather than reporting a false zero.
   trackingErrorBySide: Partial<Record<Side, TrackingError>>;
+  imuBySide: Partial<Record<Side, ImuSummary>>;
   videoSpec: VideoSpec | null;
   datasetTotals: { totalEpisodes?: number; totalFrames?: number; totalVideos?: number } | null;
+  dataQuality: DataQuality | null;
 };
 
 const GRIPPER_NAME_PATTERN = /gripper|grip(?!_?cmd$)/i;
@@ -212,12 +273,16 @@ export async function readEpisodeTelemetry(
   const actionSchema = info.features["action"];
   const hasAction = Boolean(actionSchema && actionSchema.shape.length > 0);
 
+  const imuSchema = info.features["observation.imu"];
+  const hasImu = Boolean(imuSchema && imuSchema.shape.length > 0);
+
+  const columns = ["timestamp", "observation.state"];
+  if (hasAction) columns.push("action");
+  if (hasImu) columns.push("observation.imu");
+
   let rows: Record<string, unknown>[];
   try {
-    rows = await parquetReadObjects({
-      file: bufferToAsyncBuffer(parquetBuffer),
-      columns: hasAction ? ["timestamp", "observation.state", "action"] : ["timestamp", "observation.state"],
-    });
+    rows = await parquetReadObjects({ file: bufferToAsyncBuffer(parquetBuffer), columns });
   } catch {
     return null;
   }
@@ -270,6 +335,46 @@ export async function readEpisodeTelemetry(
     }
   }
 
+  // Wrist IMU: group dims into x/y/z triplets (a "_gyro"/"_acc" group with
+  // trailing _x/_y/_z stripped), take the per-timestep vector magnitude of
+  // each triplet, and report the peak -- a smooth demonstration has a low,
+  // steady magnitude; a jerky one spikes.
+  const imuBySide: Partial<Record<Side, ImuSummary>> = {};
+  if (hasImu) {
+    const imuDims = imuSchema!.shape[imuSchema!.shape.length - 1];
+    const imuNames = flattenNames(imuSchema!.names, imuDims);
+    if (imuNames) {
+      const groups = new Map<string, number[]>();
+      for (let dim = 0; dim < imuDims; dim++) {
+        const groupKey = imuNames[dim].replace(/_[xyz]$/i, "");
+        groups.set(groupKey, [...(groups.get(groupKey) ?? []), dim]);
+      }
+
+      const gyroPeakBySide = new Map<Side, number>();
+      const accelPeakBySide = new Map<Side, number>();
+      for (const [groupKey, dims] of groups) {
+        if (dims.length !== 3) continue;
+        const side = detectSide(groupKey);
+        const isGyro = /gyro/i.test(groupKey);
+        const isAccel = /acc/i.test(groupKey);
+        if (!isGyro && !isAccel) continue;
+
+        let peak = 0;
+        for (const row of rows) {
+          const v = row["observation.imu"] as number[] | undefined;
+          if (!v) continue;
+          const [a, b, c] = dims.map((d) => v[d]);
+          peak = Math.max(peak, Math.sqrt(a * a + b * b + c * c));
+        }
+        const target = isGyro ? gyroPeakBySide : accelPeakBySide;
+        target.set(side, Math.max(target.get(side) ?? 0, peak));
+      }
+      for (const side of new Set([...gyroPeakBySide.keys(), ...accelPeakBySide.keys()])) {
+        imuBySide[side] = { peakGyro: gyroPeakBySide.get(side) ?? 0, peakAccel: accelPeakBySide.get(side) ?? 0 };
+      }
+    }
+  }
+
   const { joints: jointChannels, grippers: gripperChannels } = splitGripperChannels(channels);
 
   const graspEvents: GraspEvent[] = [];
@@ -301,16 +406,22 @@ export async function readEpisodeTelemetry(
     durationSeconds,
     sampleCount: rows.length,
     fps,
+    kinematicsLabel: kinematicsLabel(names),
     jointChannels,
     gripperChannels,
     graspEvents,
     engagedSecondsByChannel,
     armsUsed,
     trackingErrorBySide,
+    imuBySide,
     videoSpec: videoSpec(info),
     datasetTotals: info.totalEpisodes || info.totalFrames || info.totalVideos
       ? { totalEpisodes: info.totalEpisodes, totalFrames: info.totalFrames, totalVideos: info.totalVideos }
       : null,
+    // Filled in by loadEpisodeTelemetry (needs the task/bucket to fetch
+    // meta/staleness.json separately) -- readEpisodeTelemetry alone only
+    // has the parquet + info.json.
+    dataQuality: null,
   };
 }
 
@@ -383,19 +494,29 @@ function detectGraspEvents(channel: ChannelSeries): { events: GraspEvent[]; enga
 // crashing the deliverable page -- this is best-effort supplementary
 // data, not the page's core content.
 export async function loadEpisodeTelemetry(
-  task: { objectPrefix: string; chunk: string },
+  task: { objectPrefix: string; chunk: string; bucket?: string | null },
   episodeIndex: number
 ): Promise<EpisodeTelemetry | null> {
+  const bucket = task.bucket ?? undefined;
   try {
-    const infoBuffer = await getObjectBuffer(datasetInfoKey(task));
+    const infoBuffer = await getObjectBuffer(datasetInfoKey(task), bucket);
     if (!infoBuffer) return null;
     const info = parseDatasetInfo(infoBuffer);
     if (!info) return null;
 
-    const parquetBuffer = await getObjectBuffer(episodeParquetKey(task, episodeIndex));
+    const parquetBuffer = await getObjectBuffer(episodeParquetKey(task, episodeIndex), bucket);
     if (!parquetBuffer) return null;
 
-    return await readEpisodeTelemetry(parquetBuffer, info);
+    const telemetry = await readEpisodeTelemetry(parquetBuffer, info);
+    if (!telemetry) return null;
+
+    // Best-effort and separate from the try/catch above's failure modes --
+    // most captures don't have a staleness.json at all, and that's fine,
+    // it just means no data-quality section rather than no telemetry.
+    const stalenessBuffer = await getObjectBuffer(`${task.objectPrefix}meta/staleness.json`, bucket).catch(() => null);
+    telemetry.dataQuality = stalenessBuffer ? parseStaleness(stalenessBuffer, episodeIndex) : null;
+
+    return telemetry;
   } catch (e) {
     console.error("[telemetry] failed to load episode telemetry:", e);
     return null;

@@ -155,6 +155,11 @@ model Dataset {
   chunk        String        @default("chunk-000")
   cameras      String[]      @default([])
   fps          Int           @default(30)
+  // MinIO bucket this dataset's objectPrefix lives in. Null means "use
+  // MINIO_BUCKET" (see src/lib/minio.ts) -- every dataset until UMI lived
+  // in one bucket, so existing rows don't need a value, only ones on a
+  // different bucket (e.g. pika-sense-umi-data) set this explicitly.
+  bucket       String?
   // Physical rig and camera hardware -- dataset-level constants, not derived
   // from meta/info.json (which only records the internal robot_type key).
   robotType    String?
@@ -191,6 +196,10 @@ model Task {
   // Denormalized cameras.length -- lets the deliverable browser filter by
   // camera count with a plain Prisma where-clause instead of a raw query.
   cameraCount  Int       @default(0)
+  // Same meaning as Dataset.bucket -- a task usually inherits its dataset's
+  // bucket implicitly (both null), but can override it for a multi-task
+  // dataset whose tasks span buckets.
+  bucket       String?
   episodes   Episode[]
 
   @@unique([datasetId, taskIndex])

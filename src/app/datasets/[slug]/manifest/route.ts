@@ -29,9 +29,10 @@ export async function GET(
     });
   }
 
-  const keys = await listObjectKeys(dataset.objectPrefix);
+  const bucket = dataset.bucket ?? undefined;
+  const keys = await listObjectKeys(dataset.objectPrefix, bucket);
   const files = await Promise.all(
-    keys.map(async (key) => ({ key, url: (await getSignedDownloadUrl(key)).url }))
+    keys.map(async (key) => ({ key, url: (await getSignedDownloadUrl(key, undefined, bucket)).url }))
   );
 
   return new Response(JSON.stringify({ dataset: dataset.slug, files }, null, 2), {

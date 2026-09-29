@@ -81,7 +81,7 @@ export default async function SampleDetailPage({
       tasks
         .filter((t) => t.episodes[0]?.hasThumbnail)
         .map(async (t) => {
-          const { url } = await getPublicSampleUrl(episodeThumbnailKey(t, 0));
+          const { url } = await getPublicSampleUrl(episodeThumbnailKey(t, 0), t.bucket ?? undefined);
           thumbnailUrls.set(t.id, url);
         })
     );

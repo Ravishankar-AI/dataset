@@ -57,6 +57,12 @@ export function TelemetryPanel({
     return e ? `${e.mean.toFixed(3)} avg · ${e.peak.toFixed(3)} peak` : "no data";
   };
 
+  const hasImu = Object.keys(telemetry.imuBySide).length > 0;
+  const imuLabel = (side: "left" | "right") => {
+    const e = telemetry.imuBySide[side];
+    return e ? `gyro ${e.peakGyro.toFixed(2)} · accel ${e.peakAccel.toFixed(2)} (peak)` : "no data";
+  };
+
   const metaStats: { label: string; value: string }[] = [
     { label: "Duration", value: formatDuration(Math.round(telemetry.durationSeconds)) },
     {
@@ -68,6 +74,12 @@ export function TelemetryPanel({
     { label: "Peak force · R", value: "no data" },
     { label: "Tracking error · L", value: trackingErrorLabel("left") },
     { label: "Tracking error · R", value: trackingErrorLabel("right") },
+    ...(hasImu
+      ? [
+          { label: "Wrist IMU · L", value: imuLabel("left") },
+          { label: "Wrist IMU · R", value: imuLabel("right") },
+        ]
+      : []),
     { label: "Engaged", value: `${totalEngagedSeconds.toFixed(1)}s of ${telemetry.durationSeconds.toFixed(1)}s` },
     { label: "Engaged left", value: `${engagedFor(grippers.left).toFixed(1)}s` },
     { label: "Engaged right", value: `${engagedFor(grippers.right).toFixed(1)}s` },
@@ -113,7 +125,7 @@ export function TelemetryPanel({
 
       {telemetry.jointChannels.length > 0 && (
         <div className="mb-10">
-          <h3 className="mb-3 font-display text-[0.95rem] font-extrabold">Joint angles</h3>
+          <h3 className="mb-3 font-display text-[0.95rem] font-extrabold">{telemetry.kinematicsLabel}</h3>
           {jointsSplit ? (
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
               <div>
@@ -163,7 +175,7 @@ export function TelemetryPanel({
       )}
 
       {telemetry.graspEvents.length > 0 && (
-        <div>
+        <div className="mb-10">
           <h3 className="mb-3 font-display text-[0.95rem] font-extrabold">Events</h3>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] border-collapse">
@@ -183,6 +195,36 @@ export function TelemetryPanel({
                       {e.kind === "closed" &&
                         `hold ${e.holdSeconds.toFixed(2)}s, min value ${e.minValue.toFixed(3)}`}
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {telemetry.dataQuality && (
+        <div>
+          <h3 className="mb-1 font-display text-[0.95rem] font-extrabold">Data quality</h3>
+          <p className="mb-3 text-[0.72rem] text-ink-faint">
+            Frozen/duplicate frames per stream, from the capture pipeline&apos;s own QA pass — not
+            re-derived here.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[420px] border-collapse">
+              <tbody>
+                {Object.entries(telemetry.dataQuality.staleFractionByStream).map(([stream, frac]) => (
+                  <tr key={stream} className="border-b border-dashed border-line">
+                    <td className="py-2 pr-4 font-mono text-[0.76rem] text-ink-soft">{stream}</td>
+                    <td className="py-2 text-right font-mono text-[0.76rem] tabular-nums">
+                      {(frac * 100).toFixed(1)}% stale
+                    </td>
+                  </tr>
+                ))}
+                {telemetry.dataQuality.absentStreams.map((stream) => (
+                  <tr key={stream} className="border-b border-dashed border-line">
+                    <td className="py-2 pr-4 font-mono text-[0.76rem] text-ink-soft">{stream}</td>
+                    <td className="py-2 text-right font-mono text-[0.76rem] text-signal-ink">absent</td>
                   </tr>
                 ))}
               </tbody>

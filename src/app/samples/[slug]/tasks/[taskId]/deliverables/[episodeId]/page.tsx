@@ -32,10 +32,12 @@ export default async function DeliverableDetailPage({
   const episode = await getEpisodeForTask(taskId, episodeId);
   if (!episode || episode.episodeIndex == null || !episode.task) notFound();
 
+  const taskBucket = episode.task!.bucket ?? undefined;
+
   // The thumbnail only ever covers the primary (first) camera -- see
   // episodeThumbnailKey's doc comment -- so only that preview gets a poster.
   const posterUrl = episode.hasThumbnail
-    ? (await getPublicSampleUrl(episodeThumbnailKey(episode.task!, episode.episodeIndex!))).url
+    ? (await getPublicSampleUrl(episodeThumbnailKey(episode.task!, episode.episodeIndex!), taskBucket)).url
     : undefined;
 
   const [cameraPreviews, telemetry] = await Promise.all([
@@ -44,7 +46,7 @@ export default async function DeliverableDetailPage({
         camera,
         label: humanizeCameraName(camera),
         poster: i === 0 ? posterUrl : undefined,
-        ...(await getPublicSampleUrl(episodeVideoKey(episode.task!, episode.episodeIndex!, camera))),
+        ...(await getPublicSampleUrl(episodeVideoKey(episode.task!, episode.episodeIndex!, camera), taskBucket)),
       }))
     ),
     loadEpisodeTelemetry(episode.task!, episode.episodeIndex!),

@@ -35,7 +35,7 @@ export default async function TaskDeliverablesPage({
     episodes
       .filter((e) => e.hasThumbnail)
       .map(async (e) => {
-        const { url } = await getPublicSampleUrl(episodeThumbnailKey(task, e.episodeIndex ?? 0));
+        const { url } = await getPublicSampleUrl(episodeThumbnailKey(task, e.episodeIndex ?? 0), task.bucket ?? undefined);
         thumbnailUrls.set(e.id, url);
       })
   );
