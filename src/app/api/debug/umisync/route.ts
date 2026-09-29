@@ -73,6 +73,37 @@ export async function GET(req: NextRequest) {
   if (req.nextUrl.searchParams.get("secret") !== DEBUG_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  if (req.nextUrl.searchParams.get("verify") === "1") {
+    const dataset = await prisma.dataset.findUnique({
+      where: { slug: DATASET_SLUG },
+      include: {
+        modality: true,
+        tasks: { include: { _count: { select: { episodes: true } }, episodes: { where: { episodeIndex: 0 }, take: 1 } } },
+      },
+    });
+    return NextResponse.json({
+      dataset: dataset
+        ? {
+            slug: dataset.slug,
+            title: dataset.title,
+            modality: dataset.modality.name,
+            accessTier: dataset.accessTier,
+            status: dataset.status,
+            bucket: dataset.bucket,
+            tasks: dataset.tasks.map((t) => ({
+              title: t.title,
+              objectPrefix: t.objectPrefix,
+              cameras: t.cameras,
+              cameraCount: t.cameraCount,
+              episodeCount: t._count.episodes,
+              firstEpisodeDuration: t.episodes[0]?.durationSeconds ?? null,
+            })),
+          }
+        : null,
+    });
+  }
+
   const tasks = await discoverTasks();
   return NextResponse.json({ discovered: tasks.length, tasks });
 }
