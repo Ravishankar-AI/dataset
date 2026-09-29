@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, ListBucketsCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { S3Client, ListBucketsCommand, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
 import { NodeHttpHandler } from "@smithy/node-http-handler";
 import https from "node:https";
 import { listObjectKeys, listBucketEntries } from "@/lib/minio";
@@ -36,6 +36,21 @@ export async function GET(req: NextRequest) {
   }
 
   const bucket = req.nextUrl.searchParams.get("bucket");
+
+  if (bucket && req.nextUrl.searchParams.get("readKey")) {
+    const key = req.nextUrl.searchParams.get("readKey")!;
+    try {
+      const resp = await rawClient().send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+      const bytes = await resp.Body!.transformToByteArray();
+      const text = Buffer.from(bytes).toString("utf-8");
+      // Cap what comes back -- these are small JSON/JSONL metadata files,
+      // not video, but no need to return more than needed to inspect shape.
+      return NextResponse.json({ bucket, key, bytes: bytes.length, text: text.slice(0, 20000) });
+    } catch (err) {
+      return NextResponse.json({ error: "read failed", bucket, key, detail: String(err) }, { status: 404 });
+    }
+  }
+
   if (bucket) {
     const prefix = req.nextUrl.searchParams.get("prefix") ?? "";
     const result = await rawClient().send(
