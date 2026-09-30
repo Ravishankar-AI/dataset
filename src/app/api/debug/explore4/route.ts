@@ -30,6 +30,20 @@ export async function GET(req: NextRequest) {
   const bucket = req.nextUrl.searchParams.get("bucket") ?? "orbbec";
   const prefix = req.nextUrl.searchParams.get("prefix") ?? "";
 
+  if (req.nextUrl.searchParams.get("rangeKey")) {
+    const key = req.nextUrl.searchParams.get("rangeKey")!;
+    const bytes = Number(req.nextUrl.searchParams.get("bytes") ?? 30_000_000);
+    try {
+      const resp = await rawClient().send(
+        new GetObjectCommand({ Bucket: bucket, Key: key, Range: `bytes=0-${bytes - 1}` })
+      );
+      const data = await resp.Body!.transformToByteArray();
+      return new NextResponse(new Uint8Array(data), { headers: { "content-type": "video/mp4" } });
+    } catch (err) {
+      return NextResponse.json({ error: "range fetch failed", key, detail: String(err) }, { status: 404 });
+    }
+  }
+
   if (req.nextUrl.searchParams.get("readKey")) {
     const key = req.nextUrl.searchParams.get("readKey")!;
     try {
