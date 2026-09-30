@@ -4,6 +4,7 @@ import { NodeHttpHandler } from "@smithy/node-http-handler";
 import https from "node:https";
 import { prisma } from "@/lib/db";
 import { episodeThumbnailKey } from "@/lib/lerobot";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // TEMPORARY: thumbnail backfill for raw (non-LeRobot) captures --
 // egocentric-gripper-capture and orbbec-egocentric-capture -- using each
@@ -79,6 +80,14 @@ export async function GET(req: NextRequest) {
   const videoKeys = episode.videoKeys as Record<string, string>;
   const firstCamera = Object.keys(videoKeys)[0];
   const videoKey = videoKeys[firstCamera];
+
+  if (req.nextUrl.searchParams.get("presign") === "1") {
+    // Lets a client (ffmpeg) issue its own HTTP range requests directly
+    // against MinIO instead of us buffering a fixed-size chunk server-side
+    // -- needed for files whose moov atom isn't within a small prefix.
+    const url = await getSignedUrl(client(), new GetObjectCommand({ Bucket: effectiveBucket, Key: videoKey }), { expiresIn: 900 });
+    return NextResponse.json({ url });
+  }
 
   if (req.nextUrl.searchParams.get("download") === "1") {
     const rangeBytes = req.nextUrl.searchParams.get("rangeBytes");
