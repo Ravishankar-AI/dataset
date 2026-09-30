@@ -70,6 +70,12 @@ export async function GET(req: NextRequest) {
   const episode = await prisma.episode.findFirst({ where: { taskId, episodeIndex } });
   if (!episode || !episode.videoKeys) return NextResponse.json({ error: "episode or videoKeys not found" }, { status: 404 });
 
+  const task = await prisma.task.findUnique({ where: { id: taskId } });
+  // A dataset's tasks can span multiple physical buckets (e.g. UMI (Custom
+  // Gripper) mixes egocentric-gripper and conveyor-warehouse-usecases), so
+  // a per-task override always wins over the dataset-level default.
+  const effectiveBucket = task?.bucket ?? bucket;
+
   const videoKeys = episode.videoKeys as Record<string, string>;
   const firstCamera = Object.keys(videoKeys)[0];
   const videoKey = videoKeys[firstCamera];
@@ -79,7 +85,7 @@ export async function GET(req: NextRequest) {
     try {
       const resp = await client().send(
         new GetObjectCommand({
-          Bucket: bucket,
+          Bucket: effectiveBucket,
           Key: videoKey,
           ...(rangeBytes ? { Range: `bytes=0-${Number(rangeBytes) - 1}` } : {}),
         })
@@ -91,12 +97,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const task = await prisma.task.findUnique({ where: { id: taskId } });
   return NextResponse.json({
     taskId,
     episodeIndex,
     firstCamera,
     videoKey,
+    bucket: effectiveBucket,
     thumbKey: task ? episodeThumbnailKey(task, episodeIndex) : null,
   });
 }
@@ -124,7 +130,7 @@ export async function POST(req: NextRequest) {
   }
 
   const key = episodeThumbnailKey(task, episodeIndex);
-  await client().send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: bytes, ContentType: "image/jpeg" }));
+  await client().send(new PutObjectCommand({ Bucket: task.bucket ?? bucket, Key: key, Body: bytes, ContentType: "image/jpeg" }));
 
   const updated = await prisma.episode.updateMany({
     where: { taskId: task.id, episodeIndex },
