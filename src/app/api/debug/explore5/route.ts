@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (req.nextUrl.searchParams.get("recursive") === "1") {
+    const all = req.nextUrl.searchParams.get("all") === "1";
     let count = 0;
     let totalSize = 0;
     let continuationToken: string | undefined;
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
         if (!o.Key || o.Key.endsWith("/")) continue;
         count++;
         totalSize += o.Size ?? 0;
-        if (sampleKeys.length < 10) sampleKeys.push(o.Key);
+        if (all || sampleKeys.length < 10) sampleKeys.push(o.Key);
       }
       continuationToken = resp.NextContinuationToken;
     } while (continuationToken);
