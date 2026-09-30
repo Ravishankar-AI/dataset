@@ -229,6 +229,14 @@ model Episode {
   // on here once the upload is confirmed. False means render the
   // fallback camera icon instead of a broken <img>.
   hasThumbnail    Boolean   @default(false)
+  // { [camera]: literal object key } -- for raw (non-LeRobot) captures
+  // where the actual video filename is arbitrary per episode (e.g. a
+  // GoPro-assigned name) rather than following the episode_NNNNNN.mp4
+  // convention episodeVideoKey() computes. Null for every LeRobot-backed
+  // episode, which keeps using the computed key exactly as before; when
+  // set, the deliverable page uses this instead of the convention for
+  // that camera.
+  videoKeys       Json?
 
   @@unique([taskId, episodeIndex])
 }

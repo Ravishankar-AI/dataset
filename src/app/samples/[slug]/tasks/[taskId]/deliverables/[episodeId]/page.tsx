@@ -40,13 +40,24 @@ export default async function DeliverableDetailPage({
     ? (await getPublicSampleUrl(episodeThumbnailKey(episode.task!, episode.episodeIndex!), taskBucket)).url
     : undefined;
 
+  // Raw (non-LeRobot) captures store a literal per-camera key on the
+  // episode itself, since the actual filename is arbitrary (e.g. a
+  // GoPro-assigned name) rather than following the episode_NNNNNN.mp4
+  // convention episodeVideoKey() computes -- see Episode.videoKeys' doc
+  // comment. Every LeRobot-backed episode has this null and keeps using
+  // the computed key exactly as before.
+  const videoKeyOverrides = (episode.videoKeys as Record<string, string> | null) ?? null;
+
   const [cameraPreviews, telemetry] = await Promise.all([
     Promise.all(
       episode.task!.cameras.map(async (camera, i) => ({
         camera,
         label: humanizeCameraName(camera),
         poster: i === 0 ? posterUrl : undefined,
-        ...(await getPublicSampleUrl(episodeVideoKey(episode.task!, episode.episodeIndex!, camera), taskBucket)),
+        ...(await getPublicSampleUrl(
+          videoKeyOverrides?.[camera] ?? episodeVideoKey(episode.task!, episode.episodeIndex!, camera),
+          taskBucket
+        )),
       }))
     ),
     loadEpisodeTelemetry(episode.task!, episode.episodeIndex!),
