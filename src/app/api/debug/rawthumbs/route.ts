@@ -99,8 +99,13 @@ export async function GET(req: NextRequest) {
           ...(rangeBytes ? { Range: `bytes=0-${Number(rangeBytes) - 1}` } : {}),
         })
       );
-      const bytes = await resp.Body!.transformToByteArray();
-      return new NextResponse(new Uint8Array(bytes), { headers: { "content-type": "video/mp4" } });
+      // Stream instead of buffering the whole range in memory first -- for
+      // larger ranges, fully materializing the byte array server-side
+      // before responding was stalling the client with zero bytes received
+      // for 90s+, even though MinIO itself serves the smaller 30MB range
+      // fine. Streaming forwards bytes as they arrive instead.
+      const webStream = resp.Body!.transformToWebStream();
+      return new NextResponse(webStream, { headers: { "content-type": "video/mp4" } });
     } catch (err) {
       return NextResponse.json({ error: "fetch failed", videoKey, detail: String(err) }, { status: 404 });
     }
