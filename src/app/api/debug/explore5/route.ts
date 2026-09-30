@@ -42,6 +42,26 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  if (req.nextUrl.searchParams.get("recursive") === "1") {
+    let count = 0;
+    let totalSize = 0;
+    let continuationToken: string | undefined;
+    const sampleKeys: string[] = [];
+    do {
+      const resp = await rawClient().send(
+        new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: continuationToken })
+      );
+      for (const o of resp.Contents ?? []) {
+        if (!o.Key || o.Key.endsWith("/")) continue;
+        count++;
+        totalSize += o.Size ?? 0;
+        if (sampleKeys.length < 10) sampleKeys.push(o.Key);
+      }
+      continuationToken = resp.NextContinuationToken;
+    } while (continuationToken);
+    return NextResponse.json({ bucket, prefix, count, totalSize, sampleKeys });
+  }
+
   const result = await rawClient().send(
     new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, Delimiter: "/" })
   );
