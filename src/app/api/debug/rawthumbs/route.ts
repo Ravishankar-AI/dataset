@@ -91,12 +91,23 @@ export async function GET(req: NextRequest) {
 
   if (req.nextUrl.searchParams.get("download") === "1") {
     const rangeBytes = req.nextUrl.searchParams.get("rangeBytes");
+    // Suffix range (last N bytes) -- for non-faststart MP4s whose moov atom
+    // is written at the end. Combined client-side with a prefix fetch (see
+    // the concat trick in the backfill script): the prefix keeps mdat's
+    // frame bytes at their original offsets, and the appended moov's
+    // stco/co64 tables still resolve correctly against those offsets even
+    // though moov itself now sits at a different position in the file.
+    const suffixBytes = req.nextUrl.searchParams.get("suffixBytes");
     try {
       const resp = await client().send(
         new GetObjectCommand({
           Bucket: effectiveBucket,
           Key: videoKey,
-          ...(rangeBytes ? { Range: `bytes=0-${Number(rangeBytes) - 1}` } : {}),
+          ...(suffixBytes
+            ? { Range: `bytes=-${Number(suffixBytes)}` }
+            : rangeBytes
+              ? { Range: `bytes=0-${Number(rangeBytes) - 1}` }
+              : {}),
         })
       );
       // Stream instead of buffering the whole range in memory first -- for
