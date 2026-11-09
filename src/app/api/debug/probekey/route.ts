@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   }
   const bucket = req.nextUrl.searchParams.get("bucket") ?? DEFAULT_BUCKET;
 
-  if (req.nextUrl.searchParams.get("list")) {
+  if (req.nextUrl.searchParams.has("list")) {
     const prefix = req.nextUrl.searchParams.get("list")!;
     const result = await rawClient().send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, Delimiter: "/" }));
     return NextResponse.json({
