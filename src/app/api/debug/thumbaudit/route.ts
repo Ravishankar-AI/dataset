@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
       take,
       skip,
       orderBy: [{ taskId: "asc" }, { episodeIndex: "asc" }],
-      select: { taskId: true, episodeIndex: true, videoKeys: true, task: { select: { title: true, bucket: true, objectPrefix: true } } },
+      select: { taskId: true, episodeIndex: true, videoKeys: true, task: { select: { title: true, bucket: true, objectPrefix: true, chunk: true, cameras: true } } },
     });
     const totalMissing = await prisma.episode.count({ where: { hasThumbnail: false, task: { dataset: { slug: datasetSlug } } } });
     return NextResponse.json({ datasetSlug, totalMissing, count: episodes.length, episodes });
