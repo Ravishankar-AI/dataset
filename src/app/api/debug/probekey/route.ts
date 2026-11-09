@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { NodeHttpHandler } from "@smithy/node-http-handler";
 import https from "node:https";
 
@@ -29,6 +29,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const bucket = req.nextUrl.searchParams.get("bucket") ?? DEFAULT_BUCKET;
+
+  if (req.nextUrl.searchParams.get("list")) {
+    const prefix = req.nextUrl.searchParams.get("list")!;
+    const result = await rawClient().send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, Delimiter: "/" }));
+    return NextResponse.json({
+      bucket,
+      prefix,
+      commonPrefixes: (result.CommonPrefixes ?? []).map((p) => p.Prefix),
+      objects: (result.Contents ?? []).map((o) => ({ key: o.Key, size: o.Size })),
+    });
+  }
+
   const key = req.nextUrl.searchParams.get("key");
   if (!key) return NextResponse.json({ error: "key required" }, { status: 400 });
 
