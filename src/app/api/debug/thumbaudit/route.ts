@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   if (datasetSlug) {
     const take = Number(req.nextUrl.searchParams.get("limit") ?? 100);
     const skip = Number(req.nextUrl.searchParams.get("skip") ?? 0);
+    const dataset = await prisma.dataset.findUnique({ where: { slug: datasetSlug }, select: { bucket: true, objectPrefix: true } });
     const episodes = await prisma.episode.findMany({
       where: { hasThumbnail: false, task: { dataset: { slug: datasetSlug } } },
       take,
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
       select: { taskId: true, episodeIndex: true, videoKeys: true, task: { select: { title: true, bucket: true, objectPrefix: true, chunk: true, cameras: true } } },
     });
     const totalMissing = await prisma.episode.count({ where: { hasThumbnail: false, task: { dataset: { slug: datasetSlug } } } });
-    return NextResponse.json({ datasetSlug, totalMissing, count: episodes.length, episodes });
+    return NextResponse.json({ datasetSlug, dataset, totalMissing, count: episodes.length, episodes });
   }
 
   const datasets = await prisma.dataset.findMany({ select: { slug: true, title: true } });
